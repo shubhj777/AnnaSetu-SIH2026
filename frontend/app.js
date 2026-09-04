@@ -21,11 +21,15 @@ const STATE = {
 };
 
 // -------------------------------------------------------------
-// DUAL-MODE API HELPER
+// DUAL-MODE API HELPER WITH JWT AUTH
 // -------------------------------------------------------------
 async function api(path, method = "GET", body = null) {
   try {
     const opts = { method, headers: { "Content-Type": "application/json" } };
+    const token = localStorage.getItem("kq_token");
+    if (token) {
+      opts.headers["Authorization"] = `Bearer ${token}`;
+    }
     if (body !== null) opts.body = JSON.stringify(body);
     
     // Attempt real backend call
@@ -33,13 +37,17 @@ async function api(path, method = "GET", body = null) {
     const contentType = res.headers.get("content-type") || "";
     
     if (!res.ok || !contentType.includes("application/json")) {
-      throw new Error(`Server returned status ${res.status}`);
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.detail || `Server returned status ${res.status}`);
     }
     
     const data = await res.json();
     setOfflineMode(false);
     return data;
   } catch (err) {
+    if (path.startsWith("/api/auth/")) {
+      throw err; // Do not swallow auth errors
+    }
     // Transparently fall back to client-side MockData
     setOfflineMode(true);
     return fallbackMockApi(path, method, body);
@@ -93,8 +101,87 @@ async function fallbackMockApi(path, method, body) {
   }
   if (path.startsWith("/api/operator/action")) return MockData.operatorAction(body);
   if (path === "/api/admin/metrics") return MockData.getAdminMetrics();
-  if (path === "/api/sms_logs") return MockData.getSmsLogs();
+  if (path === "/api/sms_logs" || path.startsWith("/api/admin/notifications")) return MockData.getSmsLogs();
   if (path === "/api/help/complaint") return MockData.registerComplaint(body);
+  if (path === "/api/gis/locations") {
+    return {
+      status: "success",
+      data: {
+        centres: MockData.getCentres().data,
+        farmers: [
+          { id: "f-01", name: "Ramesh Kumar", village: "Taraori", latitude: 29.8055, longitude: 76.9282, token_number: "#A-52", centre_id: "centre-a", status: "ARRIVED" },
+          { id: "f-02", name: "Baldev Singh", village: "Assandh", latitude: 29.5197, longitude: 76.6023, token_number: "#B-19", centre_id: "centre-b", status: "BOOKED" }
+        ]
+      }
+    };
+  }
+  if (path.startsWith("/api/payments/receipt/")) {
+    return {
+      status: "success",
+      receipt: {
+        receipt_number: "RCP-DEMO-001",
+        pfms_reference: "PFMS-GOV-998124",
+        booking_id: "b-ramesh-wheat",
+        farmer_name: "Ramesh Kumar (रमेश कुमार)",
+        farmer_mobile: "9812345678",
+        token_number: "#A-52",
+        crop_type: "Wheat (गेहूँ)",
+        quantity_quintal: 50.0,
+        net_weight_quintal: 50.0,
+        msp_rate_per_quintal: 2425.0,
+        total_amount_inr: 121250.0,
+        bank_name: "State Bank of India",
+        account_masked: "XXXXXX9012",
+        ifsc: "SBIN0001234",
+        status: "SUCCESSFUL",
+        completed_at: new Date().toISOString()
+      }
+    };
+  }
+  if (path === "/api/payments/initiate" || path === "/api/payments/verify") {
+    return {
+      status: "success",
+      message: "Payment processed",
+      data: {
+        payment: { payment_reference: "PAY-REF-DEMO", status: "SUCCESSFUL", total_amount_inr: 121250.0 },
+        receipt: { receipt_number: "RCP-DEMO-001", pfms_reference: "PFMS-GOV-998124" }
+      }
+    };
+  }
+  if (path === "/api/crops/submissions") {
+    return {
+      status: "success",
+      count: 1,
+      data: [
+        {
+          id: "sub-demo-01",
+          farmer_name: "Ramesh Kumar",
+          farmer_mobile: "9812345678",
+          crop_type: "Wheat (गेहूँ)",
+          variety: "HD-2967",
+          quantity_quintal: 50.0,
+          moisture_percentage: 11.5,
+          status: "APPROVED",
+          notes: "Meets FCI FAQ parameters (Moisture < 12%)",
+          created_at: new Date().toISOString().slice(0, 16).replace("T", " ")
+        }
+      ]
+    };
+  }
+  if (path === "/api/crops/submit" || path.includes("/evaluate")) {
+    return { status: "success", message: "Crop assay processed successfully." };
+  }
+  if (path.endsWith("/cancel")) {
+    return { status: "success", message: "Booking cancelled successfully." };
+  }
+  if (path === "/api/bookings" && method === "GET") {
+    return {
+      status: "success",
+      data: [
+        { id: "b-01", token_number: "#A-52", centre_id: "centre-a", centre_name: "Centre A - Karnal", date: "2026-09-01", time_window: "10:00 - 11:00 AM", crop_type: "Wheat (गेहूँ)", quantity_quintal: 50, status: "ARRIVED", total_payout_inr: 121250 }
+      ]
+    };
+  }
 
   throw new Error(`Endpoint not mapped in mock fallback: ${path}`);
 }
@@ -140,7 +227,7 @@ function setFarmerSubTab(subTab) {
   if (tabReg) tabReg.className = !isLogin ? "flex-1 py-1.5 rounded-lg font-bold bg-white text-emerald-800 shadow-sm" : "flex-1 py-1.5 rounded-lg font-bold text-slate-500";
 }
 
-function handleFarmerLoginSubmit(event) {
+async function handleFarmerLoginSubmit(event) {
   event.preventDefault();
   const identifier = document.getElementById("f-login-mobile").value.trim();
   const otp = document.getElementById("f-login-otp").value.trim();
@@ -152,43 +239,33 @@ function handleFarmerLoginSubmit(event) {
     return;
   }
 
-  // Check existing users or default demo user
-  const users = getUsers();
-  const found = users.find(u => u.mobile === identifier || u.farmerId === identifier);
-
-  if (found) {
-    loginAs({ ...found, role: "farmer", tokenNumber: found.tokenNumber || (identifier === "9812345678" ? "#A-52" : null) });
-  } else if (identifier === "9812345678" || identifier === "FID-HR-78921") {
-    handleDemoFarmerLogin();
-  } else {
-    // Dynamically auto-create/login for demo convenience
-    const newFarmer = {
-      role: "farmer",
-      name: "किसान (Farmer " + identifier.slice(-4) + ")",
-      mobile: identifier,
-      village: "Karnal Rural, Haryana",
-      farmerId: "FID-HR-" + Math.floor(10000 + Math.random() * 90000),
-      tokenNumber: null
-    };
-    users.push(newFarmer);
-    saveUsers(users);
-    loginAs(newFarmer);
+  try {
+    const res = await api("/api/auth/login", "POST", { identifier, password: otp || "1234", role: "farmer" });
+    loginAs(res.user, res.token);
+  } catch (err) {
+    if (errEl) { errEl.textContent = err.message || "लॉगिन विफल रहा।"; errEl.classList.remove("hidden"); }
+    showToast(err.message || "लॉगिन विफल", "error");
   }
 }
 
-function handleDemoFarmerLogin() {
-  loginAs({
-    role: "farmer",
-    name: "Ramesh Kumar (रमेश कुमार)",
-    mobile: "9812345678",
-    village: "Taraori ABC (गाँव ताराओड़ी)",
-    farmerId: "FID-HR-78921",
-    crop: "Wheat (गेहूँ) (50 क्विंटल)",
-    tokenNumber: "#A-52"
-  });
+async function handleDemoFarmerLogin() {
+  try {
+    const res = await api("/api/auth/login", "POST", { identifier: "9812345678", password: "1234", role: "farmer" });
+    loginAs(res.user, res.token);
+  } catch (err) {
+    loginAs({
+      id: "usr-ramesh",
+      role: "farmer",
+      name: "Ramesh Kumar (रमेश कुमार)",
+      mobile: "9812345678",
+      village: "Taraori (ताराओड़ी)",
+      farmerId: "FID-HR-78921",
+      tokenNumber: "#A-52"
+    });
+  }
 }
 
-function handleFarmerRegisterSubmit(event) {
+async function handleFarmerRegisterSubmit(event) {
   event.preventDefault();
   const name = document.getElementById("f-reg-name").value.trim();
   const mobile = document.getElementById("f-reg-mobile").value.trim();
@@ -197,60 +274,78 @@ function handleFarmerRegisterSubmit(event) {
   const errEl = document.getElementById("f-reg-error");
   if (errEl) errEl.classList.add("hidden");
 
-  const users = getUsers();
-  if (users.some(u => u.mobile === mobile)) {
-    if (errEl) { errEl.textContent = "इस मोबाइल नंबर से पहले से खाता मौजूद है। कृपया लॉगिन करें।"; errEl.classList.remove("hidden"); }
-    return;
+  try {
+    const res = await api("/api/auth/register", "POST", { name, mobile, village, password: password || "1234" });
+    loginAs(res.user, res.token);
+    showToast("पंजीकरण सफल! अब अपना पहला स्लॉट बुक करें।", "success");
+    setTimeout(openBookingModal, 400);
+  } catch (err) {
+    if (errEl) { errEl.textContent = err.message || "पंजीकरण विफल रहा।"; errEl.classList.remove("hidden"); }
+    showToast(err.message || "पंजीकरण विफल", "error");
   }
-
-  const farmerId = "FID-HR-" + Math.floor(10000 + Math.random() * 90000);
-  const user = { role: "farmer", name, mobile, village, password, farmerId, tokenNumber: null };
-  users.push(user);
-  saveUsers(users);
-  loginAs(user);
-  showToast("खाता सफलतापूर्वक बना! अब अपना पहला स्लॉट बुक करें।", "success");
-  setTimeout(openBookingModal, 400);
 }
 
-function handleOperatorLoginSubmit(event) {
+async function handleOperatorLoginSubmit(event) {
   event.preventDefault();
   const opId = document.getElementById("op-login-id").value.trim();
   const centreId = document.getElementById("op-login-centre").value;
-  loginAs({
-    role: "operator",
-    name: `Operator (${opId})`,
-    opId: opId,
-    centreId: centreId
-  });
+  try {
+    const res = await api("/api/auth/login", "POST", { identifier: "9800000001", password: "1234", role: "operator" });
+    res.user.centreId = centreId;
+    loginAs(res.user, res.token);
+  } catch {
+    loginAs({
+      role: "operator",
+      name: `Operator (${opId || 'Desk 1'})`,
+      opId: opId || "OP-01",
+      centreId: centreId
+    });
+  }
 }
 
-function handleDemoOperatorLogin() {
-  loginAs({
-    role: "operator",
-    name: "Operator Desk #1",
-    opId: "OP-KNL-01",
-    centreId: "centre-a"
-  });
+async function handleDemoOperatorLogin() {
+  try {
+    const res = await api("/api/auth/login", "POST", { identifier: "9800000001", password: "1234", role: "operator" });
+    res.user.centreId = "centre-a";
+    loginAs(res.user, res.token);
+  } catch {
+    loginAs({
+      role: "operator",
+      name: "Karnal Mandi Operator",
+      opId: "OP-KNL-01",
+      centreId: "centre-a"
+    });
+  }
 }
 
-function handleAdminLoginSubmit(event) {
+async function handleAdminLoginSubmit(event) {
   event.preventDefault();
   const admId = document.getElementById("adm-login-id").value.trim();
-  loginAs({
-    role: "admin",
-    name: `District Admin (${admId})`,
-    adminId: admId,
-    jurisdiction: "District Karnal, Haryana"
-  });
+  try {
+    const res = await api("/api/auth/login", "POST", { identifier: "9800000000", password: "1234", role: "admin" });
+    loginAs(res.user, res.token);
+  } catch {
+    loginAs({
+      role: "admin",
+      name: `District Admin (${admId || 'Karnal'})`,
+      adminId: admId || "ADM-KNL",
+      jurisdiction: "District Karnal, Haryana"
+    });
+  }
 }
 
-function handleDemoAdminLogin() {
-  loginAs({
-    role: "admin",
-    name: "District Administrator Karnal",
-    adminId: "ADM-KNL-HQ",
-    jurisdiction: "District Karnal, Haryana"
-  });
+async function handleDemoAdminLogin() {
+  try {
+    const res = await api("/api/auth/login", "POST", { identifier: "9800000000", password: "1234", role: "admin" });
+    loginAs(res.user, res.token);
+  } catch {
+    loginAs({
+      role: "admin",
+      name: "District Collector & Mandi Secretary",
+      adminId: "ADM-KNL-HQ",
+      jurisdiction: "District Karnal, Haryana"
+    });
+  }
 }
 
 function quickSwitchRole(role) {
@@ -263,14 +358,17 @@ function quickSwitchRole(role) {
   }
 }
 
-function loginAs(user) {
+function loginAs(user, token = null) {
   STATE.user = user;
   STATE.role = user.role || "farmer";
+  if (token) {
+    localStorage.setItem("kq_token", token);
+  }
   if (user.role === "operator") {
     STATE.operatorCentreId = user.centreId || "centre-a";
   }
   if (user.role === "farmer") {
-    STATE.myTokenNumber = user.tokenNumber || (user.mobile === "9812345678" ? "#A-52" : null);
+    STATE.myTokenNumber = user.tokenNumber || (user.mobile === "9812345678" ? "#A-52" : (user.mobile === "9876543210" ? "#B-19" : (user.mobile === "9823456789" ? "#A-35" : (user.mobile === "9898765432" ? "#C-08" : null))));
   }
 
   // Persist session in localStorage
@@ -294,16 +392,37 @@ function loginAs(user) {
 
   const heroDetailsEl = document.getElementById("farmer-hero-details");
   if (heroDetailsEl) {
-    heroDetailsEl.textContent = `गाँव: ${user.village || 'Taraori ABC (गाँव ताराओड़ी)'} | किसान ID: ${user.farmerId || 'FID-HR-78921'} | फसल: ${user.crop || 'Wheat (गेहूँ) (50 क्विंटल)'}`;
+    heroDetailsEl.textContent = `गाँव: ${user.village || 'Taraori (ताराओड़ी)'} | किसान ID: ${user.farmer_id || user.farmerId || 'FID-HR-78921'} | फसल: ${user.crop || 'Wheat (गेहूँ) (50 क्विंटल)'}`;
   }
 
   bootApp();
   setRole(STATE.role);
+
+  // Initialize role-specific GIS and data tables
+  if (STATE.role === "farmer") {
+    setTimeout(() => {
+      initFarmerGisMap();
+      loadFarmerCropSubmissions();
+      renderFarmerBookingHistory();
+    }, 200);
+  } else if (STATE.role === "admin") {
+    setTimeout(() => {
+      initAdminGisMap();
+      loadAdminCropSubmissions();
+      loadAdminNotificationLogs();
+    }, 200);
+  } else if (STATE.role === "operator") {
+    setTimeout(() => {
+      loadOperatorCropSubmissions();
+    }, 200);
+  }
+
   showToast(`✓ ${user.name || 'User'} के रूप में लॉगिन सफल`, "success");
 }
 
 function logout() {
   localStorage.removeItem("kq_session");
+  localStorage.removeItem("kq_token");
   if (STATE.pollTimer) clearInterval(STATE.pollTimer);
   STATE.user = null;
   STATE.myTokenNumber = null;
@@ -318,7 +437,8 @@ function tryRestoreSession() {
   try {
     const saved = JSON.parse(localStorage.getItem("kq_session") || "null");
     if (saved && saved.role) {
-      loginAs(saved);
+      const token = localStorage.getItem("kq_token");
+      loginAs(saved, token);
       return true;
     }
   } catch {}
@@ -453,6 +573,9 @@ async function refreshFarmerData(silent = false) {
     renderStepper();
     renderPaymentCard();
     renderSlotMatrix(STATE.myBooking.centre_id);
+    initFarmerGisMap();
+    loadFarmerCropSubmissions();
+    renderFarmerBookingHistory();
     refreshSmsLogs();
   } catch (e) {
     if (!silent) showToast("बुकिंग लोड करने में समस्या हुई।", "error");
@@ -468,8 +591,14 @@ async function refreshFarmerData(silent = false) {
       renderStepper();
       renderPaymentCard();
       renderSlotMatrix(STATE.myBooking.centre_id);
+      initFarmerGisMap();
+      loadFarmerCropSubmissions();
+      renderFarmerBookingHistory();
     } else {
       renderFarmerEmptyState();
+      initFarmerGisMap();
+      loadFarmerCropSubmissions();
+      renderFarmerBookingHistory();
     }
   }
 }
@@ -653,6 +782,10 @@ function renderDigitalPass() {
         <button onclick="sharePassWhatsApp()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
           <i class="fa-brands fa-whatsapp"></i> WhatsApp शेयर
         </button>
+        ${(b.status === 'BOOKED' || b.status === 'ARRIVED') ? `
+        <button onclick="promptCancelBooking('${b.token_number}')" class="py-2 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="रद्द करें">
+          <i class="fa-solid fa-xmark"></i> रद्द करें
+        </button>` : ''}
       </div>
     </div>`;
 }
@@ -755,7 +888,7 @@ function renderPaymentCard() {
     bankMaskedEl.textContent = `${b.bank_name || 'State Bank of India'} - ${b.account_masked || 'XXXXXX9012'}`;
   }
 
-  if (isPaid) {
+  if (isPaid || b.status === "PAYMENT_CREDITED") {
     badgeEl.textContent = "✅ DBT PFMS Credited";
     badgeEl.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
     statusEl.textContent = "राशि खाते में जमा (Credited)";
@@ -765,6 +898,17 @@ function renderPaymentCard() {
     badgeEl.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300";
     statusEl.textContent = "खरीद पूर्ण होने पर देय";
     txEl.textContent = "—";
+  }
+
+  const btnDbt = document.getElementById("btn-process-dbt");
+  if (btnDbt) {
+    if (isPaid || b.status === "PAYMENT_CREDITED") {
+      btnDbt.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>✓ DBT राशि जमा हो चुकी है (Credited)</span>';
+      btnDbt.className = "flex-1 py-2.5 px-4 bg-emerald-800 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-2";
+    } else {
+      btnDbt.innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i><span>💰 DBT भुगतान स्वीकृति व सत्यापन (Verify DBT)</span>';
+      btnDbt.className = "flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-2";
+    }
   }
 }
 
@@ -922,6 +1066,7 @@ function openRouteModal() {
   document.getElementById("route-gate").textContent = centre.gate_entry || "Gate 1 (North Weighbridge Entrance)";
   document.getElementById("route-tips").textContent = centre.route_tips || "Follow NH44 towards GT Road Flyover. Keep in the tractor line.";
   document.getElementById("route-modal").classList.remove("hidden");
+  setTimeout(() => initRouteGisMap(cid), 150);
 }
 
 function closeRouteModal() { document.getElementById("route-modal").classList.add("hidden"); }
@@ -1115,6 +1260,8 @@ async function refreshOperatorView() {
     <div class="glass-card p-4 rounded-2xl text-center"><span class="text-[10px] font-bold text-slate-500 block uppercase">Current Load</span><span class="text-xl font-black text-amber-600 mt-1 block">${centre.current_load_percentage}%</span></div>
     <div class="glass-card p-4 rounded-2xl text-center"><span class="text-[10px] font-bold text-slate-500 block uppercase">Active Desks</span><span class="text-xl font-black text-emerald-700 mt-1 block">${centre.active_counters}</span></div>
     <div class="glass-card p-4 rounded-2xl text-center"><span class="text-[10px] font-bold text-slate-500 block uppercase">Avg Clearance</span><span class="text-xl font-black text-teal-700 mt-1 block">${centre.avg_processing_time_min}m</span></div>`;
+
+  loadOperatorCropSubmissions();
 }
 
 async function operatorLoadToken() {
@@ -1252,6 +1399,8 @@ async function refreshAdminView() {
       </table>`;
 
     renderAdminRecommendations(m.load_analysis);
+    initAdminGisMap();
+    loadAdminNotificationLogs();
   } catch (e) { showToast("Admin metrics failed to load.", "error"); }
 }
 
@@ -1351,6 +1500,810 @@ function renderSmsLogs() {
         ${!s.is_read ? '<span class="w-2 h-2 rounded-full bg-emerald-500"></span>' : ''}
       </div>
     </div>`).join("");
+}
+
+// =============================================================
+// [GIS ENGINE] REAL LEAFLET.JS & OPENSTREETMAP INTERACTIVE MAPS
+// =============================================================
+let farmerGisMap = null;
+let farmerGisMarkers = {};
+let farmerRoutePolyline = null;
+
+let adminGisMap = null;
+let adminGisMarkers = {};
+
+let routeGisMap = null;
+let routeGisPolyline = null;
+
+function createGisMarkerIcon(color, label, iconClass = "fa-warehouse") {
+  return L.divIcon({
+    className: "custom-gis-marker",
+    html: `
+      <div class="relative flex flex-col items-center group">
+        <div class="w-8 h-8 rounded-full shadow-lg flex items-center justify-center text-white font-bold text-xs border-2 border-white transition transform hover:scale-125" style="background-color: ${color};">
+          <i class="fa-solid ${iconClass}"></i>
+        </div>
+        <span class="mt-1 bg-slate-900/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap shadow tracking-tight">${label}</span>
+      </div>
+    `,
+    iconSize: [32, 48],
+    iconAnchor: [16, 24],
+    popupAnchor: [0, -26]
+  });
+}
+
+async function initFarmerGisMap() {
+  const container = document.getElementById("farmer-gis-map");
+  if (!container) return;
+
+  if (farmerGisMap) {
+    setTimeout(() => farmerGisMap.invalidateSize(), 150);
+    return;
+  }
+
+  // Centered on Karnal Mandi District
+  farmerGisMap = L.map("farmer-gis-map", {
+    zoomControl: true,
+    scrollWheelZoom: false
+  }).setView([29.6857, 76.9905], 11);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(farmerGisMap);
+
+  try {
+    const res = await api("/api/gis/locations");
+    const data = res.data || {};
+    const centres = data.centres || STATE.centres || [];
+    const farmers = data.farmers || [];
+
+    // Render Centres
+    centres.forEach(c => {
+      const lat = c.lat !== undefined ? c.lat : c.latitude;
+      const lng = c.lng !== undefined ? c.lng : c.longitude;
+      if (lat === undefined || lng === undefined) return;
+      const load = c.load !== undefined ? c.load : (c.current_load_percentage || 50);
+      const color = load >= 80 ? "#e11d48" : load >= 50 ? "#d97706" : "#059669";
+      const marker = L.marker([lat, lng], {
+        icon: createGisMarkerIcon(color, `${(c.name || 'Centre').split(" -")[0]} (${load}%)`, "fa-wheat-awn")
+      }).addTo(farmerGisMap);
+
+      const popupHtml = `
+        <div class="p-2 space-y-1.5 min-w-[200px] text-xs font-sans">
+          <div class="font-extrabold text-slate-900 border-b border-slate-200 pb-1.5 flex justify-between items-center gap-2">
+            <span>${c.name}</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-black text-white" style="background:${color}">${load}%</span>
+          </div>
+          <p class="text-slate-600 font-medium">${c.address || 'Karnal District'}</p>
+          <div class="grid grid-cols-2 gap-1 text-[11px] pt-1">
+            <div class="text-slate-500">औसत प्रतीक्षा: <b class="text-slate-900">${c.avg_processing_time_min || 12}m</b></div>
+            <div class="text-slate-500">कतार: <b class="text-slate-900">${c.active_queues || c.active_counters || 12}</b></div>
+          </div>
+          <button onclick="switchCentreFromGis('${c.id}')" class="mt-2 w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs shadow transition">
+            यह केंद्र चुनें (Select Centre)
+          </button>
+        </div>`;
+      marker.bindPopup(popupHtml);
+      farmerGisMarkers[c.id] = marker;
+    });
+
+    // Render Current Farmer Marker
+    const farmerLat = 29.8055;
+    const farmerLng = 76.9282; // Taraori
+    const fMarker = L.marker([farmerLat, farmerLng], {
+      icon: createGisMarkerIcon("#2563eb", `आप: ${STATE.myTokenNumber || '#A-52'}`, "fa-tractor")
+    }).addTo(farmerGisMap);
+
+    fMarker.bindPopup(`
+      <div class="p-2 text-xs font-sans space-y-1">
+        <p class="font-extrabold text-blue-900">👨‍🌾 आपका स्थान (Taraori Farm)</p>
+        <p class="text-slate-600">सक्रिय टोकन: <b>${STATE.myTokenNumber || '#A-52'}</b></p>
+        <p class="text-slate-500 text-[11px]">ट्रैक्टर ट्रॉली लोड: 50 क्विंटल गेहूँ</p>
+      </div>`);
+    farmerGisMarkers["farmer"] = fMarker;
+
+    // Draw active route polyline to current/assigned centre
+    const currentCentreId = (STATE.myBooking && STATE.myBooking.centre_id) || "centre-a";
+    const destCentre = centres.find(c => c.id === currentCentreId) || centres[0];
+    const dLat = destCentre ? (destCentre.lat !== undefined ? destCentre.lat : destCentre.latitude) : 29.6857;
+    const dLng = destCentre ? (destCentre.lng !== undefined ? destCentre.lng : destCentre.longitude) : 76.9905;
+    if (dLat && dLng) {
+      farmerRoutePolyline = L.polyline([[farmerLat, farmerLng], [dLat, dLng]], {
+        color: "#059669",
+        weight: 4,
+        dashArray: "6, 8",
+        opacity: 0.85
+      }).addTo(farmerGisMap);
+    }
+  } catch (err) {
+    console.warn("Farmer GIS load error:", err);
+  }
+}
+
+function focusMapLocation(target) {
+  if (!farmerGisMap) {
+    initFarmerGisMap();
+    setTimeout(() => focusMapLocation(target), 200);
+    return;
+  }
+  if (target === "all") {
+    const group = L.featureGroup(Object.values(farmerGisMarkers));
+    if (group.getLayers().length > 0) {
+      farmerGisMap.fitBounds(group.getBounds().pad(0.15));
+    }
+  } else if (farmerGisMarkers[target]) {
+    farmerGisMap.setView(farmerGisMarkers[target].getLatLng(), 13);
+    farmerGisMarkers[target].openPopup();
+  }
+}
+
+function switchCentreFromGis(centreId) {
+  STATE.bookingCentreChoice = centreId;
+  const sel = document.getElementById("form-centre");
+  if (sel) sel.value = centreId;
+  renderSlotMatrix(centreId);
+  showToast(`केंद्र चुना गया: ${centreId.toUpperCase()}। कृपया नीचे समय स्लॉट चुनें।`, "info");
+  scrollToSection("slot-selection-card");
+}
+
+async function initAdminGisMap() {
+  const container = document.getElementById("admin-gis-map");
+  if (!container) return;
+
+  if (adminGisMap) {
+    setTimeout(() => adminGisMap.invalidateSize(), 150);
+    return;
+  }
+
+  adminGisMap = L.map("admin-gis-map", {
+    zoomControl: true,
+    scrollWheelZoom: false
+  }).setView([29.6857, 76.9905], 10);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(adminGisMap);
+
+  try {
+    const res = await api("/api/gis/locations");
+    const data = res.data || {};
+    const centres = data.centres || STATE.centres || [];
+    const farmers = data.farmers || [];
+
+    // Render Mandi Centres with Load Circles
+    centres.forEach(c => {
+      const lat = c.lat !== undefined ? c.lat : c.latitude;
+      const lng = c.lng !== undefined ? c.lng : c.longitude;
+      if (lat === undefined || lng === undefined) return;
+      const load = c.load !== undefined ? c.load : (c.current_load_percentage || 50);
+      const color = load >= 80 ? "#e11d48" : load >= 50 ? "#d97706" : "#059669";
+
+      // Circular load heat footprint
+      L.circle([lat, lng], {
+        radius: 1200 + (load * 20),
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.25,
+        weight: 1.5
+      }).addTo(adminGisMap);
+
+      const marker = L.marker([lat, lng], {
+        icon: createGisMarkerIcon(color, `${(c.name || 'Centre').split(" -")[0]} (${load}%)`, "fa-warehouse")
+      }).addTo(adminGisMap);
+
+      marker.bindPopup(`
+        <div class="p-2 space-y-1 text-xs font-sans">
+          <p class="font-extrabold text-slate-900">${c.name}</p>
+          <p class="text-slate-600">क्षमता: <b>${c.capacity_trucks || 150} वाहन</b> · भार: <b>${load}%</b></p>
+          <p class="text-slate-600">सक्रिय कतार: <b>${c.active_queues || 12}</b> · औसत निकासी: <b>${c.avg_processing_time_min || 12} min</b></p>
+          <p class="text-slate-500 font-mono text-[10px]">सेवा टोकन: ${c.serving_token_number || c.current_token || '—'}</p>
+        </div>`);
+      adminGisMarkers[c.id] = marker;
+    });
+
+    // Render Farmers Across District
+    farmers.forEach(f => {
+      const fLat = f.lat !== undefined ? f.lat : f.latitude;
+      const fLng = f.lng !== undefined ? f.lng : f.longitude;
+      if (fLat === undefined || fLng === undefined) return;
+      const fMark = L.circleMarker([fLat, fLng], {
+        radius: 6,
+        color: "#1d4ed8",
+        fillColor: "#3b82f6",
+        fillOpacity: 0.9,
+        weight: 2
+      }).addTo(adminGisMap);
+
+      fMark.bindPopup(`
+        <div class="p-1.5 text-xs font-sans">
+          <p class="font-bold text-slate-900">${f.name} (${f.token_number})</p>
+          <p class="text-slate-500 text-[11px]">${f.village || ''} · स्थिति: <b>${f.status}</b></p>
+        </div>`);
+    });
+  } catch (err) {
+    console.warn("Admin GIS load error:", err);
+  }
+}
+
+async function initRouteGisMap(centreId) {
+  const container = document.getElementById("route-gis-map");
+  if (!container) return;
+
+  if (routeGisMap) {
+    routeGisMap.remove();
+    routeGisMap = null;
+  }
+
+  const centre = (STATE.centres || []).find(c => c.id === centreId) || { lat: 29.6857, lng: 76.9905, name: "Karnal Main Mandi" };
+  const originLat = 29.8055;
+  const originLng = 76.9282; // Taraori
+  const destLat = centre.lat !== undefined ? centre.lat : (centre.latitude || 29.6857);
+  const destLng = centre.lng !== undefined ? centre.lng : (centre.longitude || 76.9905);
+
+  routeGisMap = L.map("route-gis-map", {
+    zoomControl: false,
+    scrollWheelZoom: false
+  });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(routeGisMap);
+
+  const startMarker = L.marker([originLat, originLng], {
+    icon: createGisMarkerIcon("#2563eb", "प्रस्थान (Taraori)", "fa-location-dot")
+  }).addTo(routeGisMap);
+
+  const endMarker = L.marker([destLat, destLng], {
+    icon: createGisMarkerIcon("#059669", "गंतव्य (Mandi)", "fa-flag-checkered")
+  }).addTo(routeGisMap);
+
+  routeGisPolyline = L.polyline([[originLat, originLng], [destLat, destLng]], {
+    color: "#0d9488",
+    weight: 5,
+    dashArray: "8, 8",
+    opacity: 0.9
+  }).addTo(routeGisMap);
+
+  const group = L.featureGroup([startMarker, endMarker, routeGisPolyline]);
+  routeGisMap.fitBounds(group.getBounds().pad(0.25));
+}
+
+// =============================================================
+// [PAYMENTS] REAL DBT VERIFICATION & OFFICIAL RECEIPT MODAL
+// =============================================================
+async function handleFarmerPaymentClick() {
+  const b = STATE.myBooking;
+  if (!b) {
+    showToast("कोई सक्रिय टोकन नहीं मिला।", "warn");
+    return;
+  }
+
+  if (b.status === "PAYMENT_CREDITED") {
+    showToast("✓ यह भुगतान पहले ही स्वीकृत व खाते में जमा हो चुका है।", "success");
+    openReceiptModal(b.token_number);
+    return;
+  }
+
+  showToast("प्रसंस्करण: DBT भुगतान अधिकृत किया जा रहा है...", "info");
+  try {
+    // Step 1: Initiate Payment
+    const initRes = await api("/api/payments/initiate", "POST", {
+      booking_id: b.id,
+      payment_method: "DBT_BANK_TRANSFER"
+    });
+
+    const payRef = (initRes.data && initRes.data.payment) ? initRes.data.payment.payment_reference : "PAY-REF-DEMO";
+
+    // Step 2: Verify and Sanction
+    await api("/api/payments/verify", "POST", {
+      payment_reference: payRef
+    });
+
+    showToast("✓ DBT भुगतान स्वीकृत! PFMS संदर्भ जारी एवं किसान को SMS भेजा गया।", "success");
+    await refreshFarmerData(true);
+    openReceiptModal(b.token_number);
+  } catch (err) {
+    showToast("भुगतान प्रसंस्करण में त्रुटि: " + err.message, "error");
+  }
+}
+
+async function openReceiptModal(tokenOrPaymentId) {
+  const token = tokenOrPaymentId || (STATE.myBooking && STATE.myBooking.token_number) || "#A-52";
+  const modal = document.getElementById("payment-receipt-modal");
+  const content = document.getElementById("receipt-modal-content");
+  if (!modal || !content) return;
+
+  content.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs font-bold">
+    <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 block mb-2"></i>
+    आधिकारिक DBT रसीद लोड हो रही है...
+  </div>`;
+  modal.classList.remove("hidden");
+
+  try {
+    const res = await api(`/api/payments/receipt/${encodeURIComponent(token)}`);
+    const r = res.receipt || res.data || {};
+    const b = STATE.myBooking || {};
+
+    const netQty = r.net_weight_quintal || r.quantity_quintal || b.quantity_quintal || 50;
+    const mspRate = r.msp_rate_per_quintal || b.msp_rate_per_quintal || 2425;
+    const totalPayout = r.total_amount_inr || (netQty * mspRate);
+
+    content.innerHTML = `
+      <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50 space-y-3 font-sans text-xs">
+        <div class="flex justify-between items-start border-b border-dashed border-slate-300 pb-2">
+          <div>
+            <span class="text-[9px] font-black uppercase text-emerald-800 tracking-wider block">FOOD, CIVIL SUPPLIES &amp; CONSUMER AFFAIRS</span>
+            <span class="text-xs font-black text-slate-900 block">${r.centre_name || b.centre_name || 'Centre A - Grain Market Karnal'}</span>
+          </div>
+          <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-black text-[10px] border border-emerald-300">
+            ✓ DBT CONFIRMED
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-[11px] bg-white p-3 rounded-xl border border-slate-200">
+          <div>
+            <span class="text-slate-400 block font-bold text-[9px] uppercase">Receipt No</span>
+            <span class="font-mono font-bold text-slate-900">${r.receipt_number || 'RCP-KQ-260901-0881'}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-bold text-[9px] uppercase">PFMS Ref / Tx ID</span>
+            <span class="font-mono font-bold text-emerald-700">${r.pfms_reference || 'PFMS-GOV-998124'}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-bold text-[9px] uppercase">Date &amp; Time</span>
+            <span class="font-medium text-slate-700">${r.completed_at || new Date().toLocaleString()}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-bold text-[9px] uppercase">Token &amp; Gate Pass</span>
+            <span class="font-black text-slate-900">${r.token_number || token}</span>
+          </div>
+        </div>
+
+        <div class="space-y-1 bg-white p-3 rounded-xl border border-slate-200 text-[11px]">
+          <span class="text-slate-400 block font-bold text-[9px] uppercase">Beneficiary Farmer</span>
+          <p class="font-black text-slate-900 text-xs">${r.farmer_name || b.farmer_name || 'Ramesh Kumar (रमेश कुमार)'}</p>
+          <p class="text-slate-500 font-medium">मोबाईल: <b>${r.farmer_mobile || b.farmer_mobile || '9812345678'}</b> | FID: <b>${r.farmer_id || 'FID-HR-78921'}</b></p>
+          <p class="text-slate-500 font-medium">खाता: <b>${r.bank_name || b.bank_name || 'State Bank of India'}</b> (${r.account_masked || b.account_masked || 'XXXXXX9012'}) | IFSC: <b>${r.ifsc || b.ifsc || 'SBIN0001234'}</b></p>
+        </div>
+
+        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs space-y-1.5">
+          <div class="flex justify-between font-bold text-slate-700">
+            <span>फसल (Crop):</span>
+            <span class="text-slate-900">${r.crop_type || b.crop_type || 'Wheat (गेहूँ)'}</span>
+          </div>
+          <div class="flex justify-between font-bold text-slate-700">
+            <span>कुल शुद्ध वजन (Net Weight):</span>
+            <span class="text-slate-900 font-mono">${netQty} Quintal</span>
+          </div>
+          <div class="flex justify-between font-bold text-slate-700">
+            <span>MSP निर्धारित दर:</span>
+            <span class="text-slate-900">₹${mspRate} / Quintal</span>
+          </div>
+          <div class="border-t border-emerald-300 pt-1.5 flex justify-between items-center">
+            <span class="font-black text-emerald-950 text-xs">कुल भुगतान राशि (Direct Credit):</span>
+            <span class="text-base font-black text-emerald-800 font-mono">₹ ${Number(totalPayout).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+
+        <div class="text-center pt-1 text-[10px] text-slate-400 font-bold border-t border-slate-200">
+          ✓ Digital Signature Verified · FCI &amp; Haryana Mandi Board e-Procurement Portal
+        </div>
+      </div>`;
+  } catch (err) {
+    content.innerHTML = `<div class="p-6 text-center text-rose-600 text-xs font-bold">
+      रसीद प्राप्त नहीं हो सकी: ${err.message}
+    </div>`;
+  }
+}
+
+function closeReceiptModal() {
+  const modal = document.getElementById("payment-receipt-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+// =============================================================
+// [CROPS] FCI FAQ DECLARATION & QUALITY ASSAY WORKFLOW
+// =============================================================
+function openCropDeclarationModal() {
+  const modal = document.getElementById("crop-declaration-modal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeCropDeclarationModal() {
+  const modal = document.getElementById("crop-declaration-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function handleCropDeclarationSubmit(e) {
+  e.preventDefault();
+  const cropType = document.getElementById("crop-decl-type").value;
+  const variety = document.getElementById("crop-decl-variety").value.trim() || "Standard";
+  const qty = parseFloat(document.getElementById("crop-decl-qty").value) || 50;
+  const moisture = parseFloat(document.getElementById("crop-decl-moisture").value) || 11.5;
+  const notes = document.getElementById("crop-decl-notes").value.trim();
+
+  const payload = {
+    crop_type: cropType,
+    variety: variety,
+    quantity_quintal: qty,
+    moisture_percentage: moisture,
+    notes: notes,
+    booking_id: (STATE.myBooking ? STATE.myBooking.id : null)
+  };
+
+  try {
+    await api("/api/crops/submit", "POST", payload);
+    closeCropDeclarationModal();
+    showToast("✓ फसल गुणवत्ता घोषणा सफलतापूर्वक दर्ज की गई!", "success");
+    await loadFarmerCropSubmissions();
+    refreshSmsLogs();
+  } catch (err) {
+    showToast("घोषणा दर्ज करने में त्रुटि: " + err.message, "error");
+  }
+}
+
+async function loadFarmerCropSubmissions() {
+  const container = document.getElementById("crop-submissions-list");
+  if (!container) return;
+
+  try {
+    const res = await api("/api/crops/submissions");
+    const subs = res.data || [];
+    if (subs.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-slate-500">
+          <p class="font-bold">कोई पूर्व फसल घोषणा दर्ज नहीं है।</p>
+          <p class="text-[11px] mt-0.5 text-slate-400">'नई घोषणा' बटन दबाकर अपनी उपज की नमी व विवरण दर्ज करें।</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = subs.map(s => {
+      const isApproved = s.status === "APPROVED";
+      const isRejected = s.status === "REJECTED";
+      const badgeClass = isApproved ? "bg-emerald-100 text-emerald-800 border-emerald-300" :
+                         isRejected ? "bg-rose-100 text-rose-800 border-rose-300" :
+                         "bg-amber-100 text-amber-800 border-amber-300";
+      const statusText = isApproved ? "✓ FCI FAQ स्वीकृत (Approved)" :
+                         isRejected ? "❌ अस्वीकृत (Rejected)" : "⏳ लंबित जांच (Pending Assay)";
+
+      return `
+        <div class="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-2">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-black text-slate-900 text-xs">${s.crop_type} · <span class="text-slate-500">${s.variety}</span></p>
+              <p class="text-[11px] text-slate-500 font-medium">मात्रा: <b>${s.quantity_quintal} क्विंटल</b> · नमी: <b>${s.moisture_percentage}%</b> ${s.moisture_percentage > 12 ? '<span class="text-rose-600 font-bold">(>12% FAQ Warning)</span>' : '<span class="text-emerald-600 font-bold">(FAQ Compliant)</span>'}</p>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black border ${badgeClass}">${statusText}</span>
+          </div>
+          ${isRejected ? `
+            <div class="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-900 space-y-0.5">
+              <span class="font-black block">अस्वीकृति कारण:</span>
+              <p class="font-medium">${s.rejection_reason || 'नमी 12% मानक सीमा से अधिक पाई गई।'}</p>
+              <p class="text-[10px] text-rose-700 font-bold">💡 सलाह: कृपया फसल को 24-48 घंटे धूप में सुखाकर नया स्लॉट बुक करें।</p>
+            </div>` : ''}
+          ${isApproved ? `
+            <div class="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 flex items-center gap-1.5 font-medium">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i>
+              <span>गुणवत्ता जांचकर्ता: <b>${s.evaluator_name || 'Mandi Quality Lab'}</b> (${s.notes || 'Meets FCI Grade A FAQ Standard'})</span>
+            </div>` : ''}
+        </div>`;
+    }).join("");
+  } catch (err) {
+    console.warn("Farmer crops load error:", err);
+  }
+}
+
+async function loadOperatorCropSubmissions() {
+  const container = document.getElementById("operator-crop-table");
+  if (!container) return;
+
+  try {
+    const res = await api("/api/crops/submissions");
+    const subs = res.data || [];
+    if (subs.length === 0) {
+      container.innerHTML = `<p class="p-4 text-center text-slate-400 text-xs font-bold">No crop declarations for evaluation.</p>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-slate-400 uppercase text-[10px] border-b border-slate-100">
+            <th class="py-2.5">Date / Farmer</th>
+            <th>Crop &amp; Variety</th>
+            <th>Qty</th>
+            <th>Moisture %</th>
+            <th>Status</th>
+            <th class="text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${subs.map(s => {
+            const isPending = s.status === "PENDING";
+            return `
+              <tr>
+                <td class="py-3">
+                  <p class="font-black text-slate-900">${s.farmer_name}</p>
+                  <p class="text-[10px] text-slate-400 font-mono">${s.created_at || 'Today'}</p>
+                </td>
+                <td>
+                  <p class="font-bold text-slate-800">${s.crop_type}</p>
+                  <p class="text-[10px] text-slate-500">${s.variety}</p>
+                </td>
+                <td class="font-bold text-slate-900">${s.quantity_quintal} Q</td>
+                <td>
+                  <span class="font-mono font-bold ${s.moisture_percentage > 12 ? 'text-rose-600' : 'text-emerald-700'}">${s.moisture_percentage}%</span>
+                </td>
+                <td>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${s.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : s.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}">
+                    ${s.status}
+                  </span>
+                </td>
+                <td class="text-right">
+                  ${isPending ? `
+                    <div class="inline-flex gap-1.5">
+                      <button onclick="evaluateCropSubmission('${s.id}', 'APPROVED')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] shadow transition">
+                        ✓ स्वीकृत (Pass)
+                      </button>
+                      <button onclick="openCropRejectionModal('${s.id}')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-[11px] shadow transition">
+                        ❌ अस्वीकृत (Reject)
+                      </button>
+                    </div>` : `
+                    <span class="text-[11px] text-slate-400 italic">Evaluated by ${s.evaluator_name || 'Lab'}</span>`}
+                </td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    console.warn("Operator crops load error:", err);
+  }
+}
+
+function openCropRejectionModal(submissionId) {
+  document.getElementById("reject-sub-id").value = submissionId;
+  document.getElementById("crop-rejection-modal").classList.remove("hidden");
+}
+
+function closeCropRejectionModal() {
+  document.getElementById("crop-rejection-modal").classList.add("hidden");
+}
+
+async function handleCropRejectionConfirm(e) {
+  e.preventDefault();
+  const subId = document.getElementById("reject-sub-id").value;
+  const reason = document.getElementById("reject-reason-text").value.trim();
+  const moisture = parseFloat(document.getElementById("reject-moisture-val").value) || 16.5;
+
+  if (!reason) {
+    showToast("अस्वीकृति का कारण लिखना अनिवार्य है।", "warn");
+    return;
+  }
+
+  try {
+    await api(`/api/crops/${subId}/evaluate`, "POST", {
+      decision: "REJECTED",
+      rejection_reason: reason,
+      moisture_percentage: moisture
+    });
+    closeCropRejectionModal();
+    showToast("फसल अस्वीकृति दर्ज की गई एवं किसान को SMS अलर्ट भेजा गया।", "warn");
+    await loadOperatorCropSubmissions();
+    refreshSmsLogs();
+  } catch (err) {
+    showToast("त्रुटि: " + err.message, "error");
+  }
+}
+
+async function evaluateCropSubmission(subId, decision) {
+  try {
+    await api(`/api/crops/${subId}/evaluate`, "POST", {
+      decision: decision,
+      notes: decision === "APPROVED" ? "Meets FCI FAQ parameters (Moisture within limit)" : "Rejected"
+    });
+    showToast(`✓ फसल गुणवत्ता स्थिति '${decision}' दर्ज एवं किसान को SMS भेजा गया।`, "success");
+    await loadOperatorCropSubmissions();
+    refreshSmsLogs();
+  } catch (err) {
+    showToast("त्रुटि: " + err.message, "error");
+  }
+}
+
+// =============================================================
+// [BOOKINGS] CANCELLATION & HISTORY TABLE
+// =============================================================
+function promptCancelBooking(token) {
+  const tok = token || (STATE.myBooking && STATE.myBooking.token_number) || STATE.myTokenNumber;
+  document.getElementById("cancel-token-input").value = tok;
+  document.getElementById("cancel-booking-modal").classList.remove("hidden");
+}
+
+function closeCancelBookingModal() {
+  document.getElementById("cancel-booking-modal").classList.add("hidden");
+}
+
+async function confirmBookingCancellation() {
+  const token = document.getElementById("cancel-token-input").value;
+  if (!token) return;
+
+  try {
+    await api(`/api/bookings/${encodeURIComponent(token)}/cancel`, "POST");
+    closeCancelBookingModal();
+    showToast(`स्लॉट ${token} सफलतापूर्वक रद्द किया गया। पुष्टि SMS भेजा गया।`, "info");
+    await refreshFarmerData();
+    await renderFarmerBookingHistory();
+    refreshSmsLogs();
+  } catch (err) {
+    showToast("रद्दीकरण विफल: " + err.message, "error");
+  }
+}
+
+async function renderFarmerBookingHistory() {
+  const container = document.getElementById("farmer-history-table-container");
+  if (!container) return;
+
+  const filter = (document.getElementById("history-status-filter") || {}).value || "ALL";
+
+  try {
+    const res = await api("/api/bookings");
+    let list = res.data || [];
+
+    if (filter === "ACTIVE") {
+      list = list.filter(b => b.status === "BOOKED" || b.status === "ARRIVED");
+    } else if (filter === "COMPLETED") {
+      list = list.filter(b => b.status === "PROCURED" || b.status === "PAYMENT_INITIATED" || b.status === "PAYMENT_CREDITED");
+    } else if (filter === "CANCELLED") {
+      list = list.filter(b => b.status === "CANCELLED" || b.status === "REJECTED");
+    }
+
+    if (list.length === 0) {
+      container.innerHTML = `<p class="p-6 text-center text-slate-400 text-xs font-bold">कोई बुकिंग रिकॉर्ड नहीं मिला।</p>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-slate-400 uppercase text-[10px] border-b border-slate-100">
+            <th class="py-2.5">टोकन (Token)</th>
+            <th>मंडी केंद्र (Centre)</th>
+            <th>दिनांक व समय</th>
+            <th>फसल व मात्रा</th>
+            <th>स्थिति (Status)</th>
+            <th class="text-right">कार्य (Action)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${list.map(b => {
+            const isCurrent = b.token_number === STATE.myTokenNumber;
+            const canCancel = b.status === "BOOKED" || b.status === "ARRIVED";
+            const canReceipt = b.status === "PAYMENT_CREDITED" || b.status === "PAYMENT_INITIATED" || b.status === "PROCURED";
+
+            return `
+              <tr>
+                <td class="py-3 font-black text-slate-900">
+                  <span>${b.token_number}</span>
+                  ${isCurrent ? '<span class="ml-1.5 text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">CURRENT</span>' : ''}
+                </td>
+                <td class="font-bold text-slate-800">${b.centre_name || b.centre_id}</td>
+                <td class="text-slate-600">${b.date} <span class="text-slate-400 text-[10px]">(${b.display_time_window || b.time_window})</span></td>
+                <td class="font-bold text-slate-900">${b.crop_type} (${b.quantity_quintal} Q)</td>
+                <td>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    b.status === 'PAYMENT_CREDITED' ? 'bg-emerald-100 text-emerald-800' :
+                    b.status === 'CANCELLED' ? 'bg-slate-200 text-slate-600' :
+                    b.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                    'bg-blue-100 text-blue-800'
+                  }">
+                    ${b.status}
+                  </span>
+                </td>
+                <td class="text-right">
+                  <div class="inline-flex gap-1.5">
+                    <button onclick="loadSpecificBooking('${b.token_number}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] transition">
+                      पास देखें
+                    </button>
+                    ${canReceipt ? `
+                      <button onclick="openReceiptModal('${b.token_number}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] shadow transition">
+                        रसीद
+                      </button>` : ''}
+                    ${canCancel ? `
+                      <button onclick="promptCancelBooking('${b.token_number}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-lg text-[11px] transition">
+                        रद्द करें
+                      </button>` : ''}
+                  </div>
+                </td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    console.warn("Farmer history load error:", err);
+  }
+}
+
+async function loadSpecificBooking(tokenNumber) {
+  STATE.myTokenNumber = tokenNumber;
+  localStorage.setItem("kq_token_number", tokenNumber);
+  await refreshFarmerData();
+  scrollToSection("printable-pass");
+  showToast(`टोकन ${tokenNumber} लोड किया गया।`, "info");
+}
+
+// =============================================================
+// [ADMIN] NOTIFICATIONS LOGS MONITORING & RETRY
+// =============================================================
+async function loadAdminNotificationLogs() {
+  const container = document.getElementById("admin-notifications-table");
+  if (!container) return;
+
+  try {
+    const res = await api("/api/admin/notifications?limit=25");
+    const logs = res.data || [];
+    if (logs.length === 0) {
+      container.innerHTML = `<p class="p-6 text-center text-slate-400 text-xs font-bold">No SMS notifications recorded yet.</p>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-slate-400 uppercase text-[10px] border-b border-slate-100">
+            <th class="py-2.5">Time</th>
+            <th>Recipient / Token</th>
+            <th>Event / Channel</th>
+            <th>Status</th>
+            <th>SMS Content Preview</th>
+            <th class="text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${logs.map(n => `
+            <tr>
+              <td class="py-3 text-slate-500 font-mono text-[10px] whitespace-nowrap">${n.timestamp || n.created_at || 'Just now'}</td>
+              <td>
+                <p class="font-black text-slate-900">${n.recipient_name || 'Farmer'} <span class="text-emerald-700 font-bold font-mono">(${n.token_number})</span></p>
+                <p class="text-[10px] text-slate-400 font-mono">${n.recipient_mobile}</p>
+              </td>
+              <td>
+                <p class="font-bold text-slate-700">${n.event_type || 'NOTIFICATION'}</p>
+                <span class="text-[10px] text-slate-400">NIC SMS Gateway</span>
+              </td>
+              <td>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  n.status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                  n.status === 'FAILED' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                  'bg-amber-100 text-amber-800 border border-amber-300'
+                }">
+                  ${n.status}
+                </span>
+              </td>
+              <td class="max-w-xs truncate text-slate-600 font-medium" title="${n.message_text}">${n.message_text}</td>
+              <td class="text-right">
+                <button onclick="retryNotification('${n.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-[11px] shadow transition flex items-center gap-1 ml-auto">
+                  <i class="fa-solid fa-rotate-right"></i><span>Retry</span>
+                </button>
+              </td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    console.warn("Admin notifications load error:", err);
+  }
+}
+
+async function retryNotification(id) {
+  try {
+    await api(`/api/admin/notifications/${id}/retry`, "POST");
+    showToast("SMS पुनः प्रेषित किया गया।", "success");
+    await loadAdminNotificationLogs();
+  } catch (err) {
+    showToast("SMS Retry विफल: " + err.message, "error");
+  }
 }
 
 // -------------------------------------------------------------

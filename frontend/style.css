@@ -1,4 +1,4 @@
-/* KisanQueue — Exact Pixel-Perfect Design Matching Screenshot */
+/* KisanQueue — Exact Pixel-Perfect Design & Interactive GIS Extensions */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap');
 
 :root {
@@ -109,6 +109,63 @@ body {
 .lang-btn:not(.active):hover {
   background-color: #f1f5f9;
   color: #0f172a;
+}
+
+/* ================= LEAFLET GIS STYLES & MARKERS ================= */
+.leaflet-container {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  z-index: 10 !important;
+  border-radius: 16px;
+}
+
+.custom-mandi-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  font-weight: 900;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border: 2px solid white;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.custom-mandi-marker:hover {
+  transform: scale(1.15);
+}
+
+.custom-mandi-marker.green {
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+.custom-mandi-marker.yellow {
+  background: linear-gradient(135deg, #f59e0b, #b45309);
+}
+.custom-mandi-marker.red {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  animation: pulse 1.5s infinite;
+}
+
+.custom-farmer-marker {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: white;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.5);
+  border: 2px solid white;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 16px !important;
+  padding: 4px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+}
+.leaflet-popup-content {
+  margin: 10px 12px !important;
+  line-height: 1.4 !important;
 }
 
 /* Print Pass Styles */
