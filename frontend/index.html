@@ -12,9 +12,21 @@
 
   <script>
     tailwind.config = {
-      theme: { extend: { colors: { brand: {
-        50:'#f0fdf4',100:'#dcfce7',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d'
-      } } } }
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d'
+            }
+          }
+        }
+      }
     }
   </script>
 </head>
@@ -25,13 +37,19 @@
 
   <div class="gov-ribbon"></div>
 
+  <!-- ================= OFFLINE CACHE BANNER ================= -->
+  <div id="offline-mode-banner" class="hidden bg-amber-500 text-slate-950 font-bold px-4 py-2 text-center text-xs shadow flex items-center justify-center gap-2">
+    <i class="fa-solid fa-wifi"></i>
+    <span data-i18n="offline_banner">📶 ऑफलाइन मोड: अंतिम सिंक किया गया डेटा प्रदर्शित हो रहा है। (Prototype Mode)</span>
+  </div>
+
   <!-- ================= AUTH SCREEN ================= -->
   <div id="view-auth" class="min-h-[calc(100vh-4px)] flex items-center justify-center px-4 py-10">
     <div class="w-full max-w-md">
       <div class="text-center mb-6">
         <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-white flex items-center justify-center text-3xl shadow-lg mb-3">🌾</div>
-        <h1 class="text-2xl font-extrabold text-slate-900 font-hindi">KisanQueue <span class="text-emerald-700">(किसान कतार)</span></h1>
-        <p class="text-sm text-slate-500 mt-1">Smart Farmer Procurement &amp; Real-Time Queue Management</p>
+        <h1 class="text-2xl font-extrabold text-slate-900 font-hindi" data-i18n="app_title">KisanQueue <span class="text-emerald-700">(किसान कतार)</span></h1>
+        <p class="text-sm text-slate-500 mt-1" data-i18n="app_subtitle">Smart Farmer Procurement &amp; Real-Time Queue Management</p>
       </div>
 
       <div class="glass-card rounded-3xl p-6 sm:p-8 space-y-5">
@@ -56,7 +74,7 @@
           <p id="login-error" class="text-xs text-rose-600 font-semibold hidden"></p>
           <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition">लॉगिन करें (Login)</button>
           <button type="button" onclick="handleDemoLogin()" class="w-full py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold rounded-xl transition">
-            ⚡ डेमो किसान से लॉगिन करें (Try Demo Farmer)
+            ⚡ डेमो किसान से लॉगिन करें (Try Demo Farmer: Ramesh Kumar #A-52)
           </button>
         </form>
 
@@ -89,7 +107,7 @@
         </form>
       </div>
 
-      <p class="text-center text-[11px] text-slate-400 mt-5">Account data is stored securely in your browser for this demo.</p>
+      <p class="text-center text-[11px] text-slate-400 mt-5">KisanQueue Smart India Hackathon Prototype</p>
     </div>
   </div>
 
@@ -97,36 +115,48 @@
   <div id="app-shell" class="hidden min-h-screen flex flex-col">
 
     <!-- Header -->
-    <header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200 shadow-sm">
+    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
       <div class="max-w-6xl mx-auto px-4 sm:px-6">
         <div class="flex items-center justify-between h-16 gap-3">
 
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-white flex items-center justify-center text-xl shadow-md shrink-0">🌾</div>
             <div class="hidden sm:block">
-              <h1 class="text-base font-extrabold text-slate-900 leading-tight font-hindi">KisanQueue <span class="text-emerald-700">(किसान कतार)</span></h1>
-              <p class="text-[11px] text-slate-500 leading-tight">Smart Procurement &amp; Queue Management</p>
+              <h1 class="text-base font-extrabold text-slate-900 leading-tight font-hindi" data-i18n="app_title">KisanQueue <span class="text-emerald-700">(किसान कतार)</span></h1>
+              <p class="text-[11px] text-slate-500 leading-tight" data-i18n="app_subtitle">Smart Procurement &amp; Queue Management</p>
             </div>
           </div>
 
           <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button onclick="setRole('farmer')" data-role="farmer" class="role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-700 text-white shadow">👨‍🌾 Farmer</button>
-            <button onclick="setRole('operator')" data-role="operator" class="role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-700">👨‍💼 Operator</button>
-            <button onclick="setRole('admin')" data-role="admin" class="role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-700">👨‍💻 Admin</button>
+            <button onclick="setRole('farmer')" data-role="farmer" class="role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-700 text-white shadow" data-i18n="role_farmer">👨‍🌾 Farmer</button>
+            <button onclick="setRole('operator')" data-role="operator" class="role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-700" data-i18n="role_operator">👨‍💼 Operator</button>
+            <button onclick="setRole('admin')" data-role="admin" class="role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-700" data-i18n="role_admin">👨‍💻 Admin</button>
           </div>
 
           <div class="flex items-center gap-1.5">
+            <!-- Language Switcher -->
             <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
-              <button onclick="setLanguage('hi')" data-lang="hi" class="lang-btn px-2.5 py-1 rounded-md font-bold transition bg-emerald-600 text-white">हिं</button>
-              <button onclick="setLanguage('en')" data-lang="en" class="lang-btn px-2.5 py-1 rounded-md font-bold transition text-slate-700">EN</button>
+              <button onclick="changeLanguage('hi')" data-lang="hi" class="lang-btn px-2.5 py-1 rounded-md font-bold transition bg-emerald-600 text-white">हिं</button>
+              <button onclick="changeLanguage('en')" data-lang="en" class="lang-btn px-2.5 py-1 rounded-md font-bold transition text-slate-700">EN</button>
             </div>
+
+            <!-- Notifications / SMS Drawer Button -->
             <button onclick="toggleSmsDrawer()" class="relative p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-emerald-800 transition" title="Alerts">
               <i class="fa-solid fa-bell text-sm"></i>
               <span id="sms-unread-count" class="absolute -top-1 -right-1 bg-amber-500 text-slate-900 text-[10px] font-black w-4 h-4 flex items-center justify-center rounded-full border border-white">0</span>
             </button>
+
+            <!-- Help & Grievance Modal Button -->
+            <button onclick="openComplaintModal()" class="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl text-amber-800 transition" title="Help & Grievance">
+              <i class="fa-solid fa-headset text-sm"></i>
+            </button>
+
+            <!-- Demo Live Controls Dropdown -->
             <button onclick="toggleDemoMenu()" class="p-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-slate-700 transition" title="Demo tools">
               <i class="fa-solid fa-sliders text-sm"></i>
             </button>
+
+            <!-- User Profile Dropdown -->
             <div class="relative">
               <button onclick="toggleUserMenu()" class="flex items-center gap-2 pl-2 pr-1 py-1 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                 <span class="w-7 h-7 rounded-full bg-emerald-700 text-white text-xs font-bold flex items-center justify-center" id="user-avatar">R</span>
@@ -142,6 +172,7 @@
           </div>
         </div>
 
+        <!-- Mobile Role Tabs -->
         <div class="flex md:hidden justify-between pb-2 text-[11px] font-bold">
           <button onclick="setRole('farmer')" data-role="farmer" class="role-tab-btn-m flex-1 py-1.5 text-center text-emerald-800 border-b-2 border-emerald-700">👨‍🌾 Farmer</button>
           <button onclick="setRole('operator')" data-role="operator" class="role-tab-btn-m flex-1 py-1.5 text-center text-slate-500 border-b-2 border-transparent">👨‍💼 Operator</button>
@@ -152,178 +183,267 @@
 
     <!-- Demo tools popover -->
     <div id="demo-menu" class="hidden fixed top-16 right-4 z-40 w-72 bg-slate-900 text-emerald-100 rounded-2xl shadow-2xl p-4 space-y-2 text-xs">
-      <p class="font-bold text-white flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> Live Demo Controls</p>
-      <button onclick="operatorCallNext()" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition">📢 Call Next Token</button>
-      <button onclick="simulateFullProcurementFlow()" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition">✨ Auto-Run Full Procurement</button>
-      <button onclick="resetDemoData()" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition">↺ Reset Demo Data</button>
+      <p class="font-bold text-white flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> Live Demo Quick Actions</p>
+      <button onclick="operatorCallNext()" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition">📢 Call Next Serving Token</button>
+      <button onclick="simulateFullProcurementFlow()" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition">✨ Auto-Run 7-Stage Procurement</button>
+      <button onclick="resetDemoData()" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition">↺ Reset Demo State</button>
     </div>
 
-    <!-- ============ FARMER VIEW ============ -->
+    <!-- ============ FARMER VIEW (DASHBOARD v2) ============ -->
     <main id="view-farmer" class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-      <div class="glass-card p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white">
+      <!-- Farmer Banner & Actions -->
+      <div class="glass-card p-5 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white shadow-xl">
         <div class="flex items-center gap-4">
-          <div class="w-14 h-14 rounded-2xl bg-emerald-700/80 border-2 border-emerald-400/40 flex items-center justify-center text-2xl">👨‍🌾</div>
+          <div class="w-14 h-14 rounded-2xl bg-emerald-700/80 border-2 border-emerald-400/40 flex items-center justify-center text-2xl shadow-inner">👨‍🌾</div>
           <div>
             <h2 id="farmer-profile-name" class="text-lg font-black font-hindi">नमस्ते, किसान भाई</h2>
             <p id="farmer-profile-details" class="text-xs text-emerald-200/90 mt-0.5">—</p>
           </div>
         </div>
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <button onclick="openBookingModal()" class="flex-1 md:flex-initial px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition">
-            <i class="fa-solid fa-calendar-plus"></i><span>नया स्लॉट बुक करें</span>
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button onclick="openBookingModal()" class="flex-1 md:flex-initial px-4 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition">
+            <i class="fa-solid fa-calendar-plus"></i><span data-i18n="book_new_slot">नया स्लॉट बुक करें</span>
           </button>
-          <button onclick="triggerVoiceAnnouncement()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow flex items-center justify-center gap-2 transition">
-            <i class="fa-solid fa-volume-high"></i>
+          <button onclick="triggerVoiceAnnouncement()" class="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition" title="Voice Readout">
+            <i class="fa-solid fa-volume-high"></i><span data-i18n="voice_listen">आवाज़ में सुनें</span>
           </button>
         </div>
       </div>
 
-      <div id="ai-recommend-banner" class="hidden p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-        <div class="flex items-start gap-3">
-          <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0">🚀</div>
+      <!-- [FEATURE a] "आपका अगला काम" (What should I do now) Dynamic Action Card -->
+      <div id="what-next-card" class="glass-card p-5 rounded-3xl border-l-8 border-emerald-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-white">
+        <div class="flex items-start gap-3.5">
+          <div id="what-next-icon" class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shrink-0 shadow-md">📍</div>
           <div>
-            <h3 class="text-sm font-black text-amber-900">AI स्मार्ट मंडी सुझाव</h3>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-extrabold text-slate-900 font-hindi" data-i18n="what_next_title">आपका अगला कदम</h3>
+              <span id="what-next-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">Wait at Home</span>
+            </div>
+            <p id="what-next-desc" class="text-xs text-slate-700 mt-1 font-medium leading-relaxed">
+              आपका स्लॉट पुष्ट है। वर्तमान में कतार सामान्य है, आप घर पर आराम कर सकते हैं।
+            </p>
+          </div>
+        </div>
+        <div id="what-next-action-slot" class="shrink-0 w-full sm:w-auto"></div>
+      </div>
+
+      <!-- [FEATURE e] AI Smart Mandi Suggestion / Rebalancing Banner -->
+      <div id="ai-recommend-banner" class="hidden p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow">⚡</div>
+          <div>
+            <h3 class="text-sm font-black text-amber-900" data-i18n="ai_rebalance_banner_title">AI स्मार्ट मंडी सुझाव</h3>
             <p id="ai-recommend-text" class="text-xs text-amber-800 mt-0.5">—</p>
           </div>
         </div>
-        <button onclick="switchRecommendedCentre()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shrink-0 transition">सुझाया केंद्र चुनें</button>
+        <button onclick="switchRecommendedCentre()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shrink-0 shadow transition" data-i18n="ai_rebalance_btn">सुझाया केंद्र चुनें</button>
       </div>
 
+      <!-- Main Farmer Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Live Queue Radar + 7-Stage Procurement Timeline -->
         <div class="lg:col-span-7 space-y-6">
-          <div class="glass-card p-6 rounded-3xl">
+
+          <!-- [FEATURE b & c] Real-time queue position & AI wait-time radar -->
+          <div class="glass-card p-6 rounded-3xl space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
               <div class="flex items-center gap-2.5">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-200">
-                  <span class="w-2 h-2 mr-1.5 bg-rose-500 rounded-full animate-ping"></span>LIVE
+                  <span class="w-2 h-2 mr-1.5 bg-rose-500 rounded-full animate-ping"></span>LIVE RADAR
                 </span>
                 <h3 id="q-centre-name" class="font-extrabold text-slate-900 text-sm">—</h3>
               </div>
-              <span id="q-slot-window" class="text-xs font-bold text-slate-400">—</span>
+              <span id="q-slot-window" class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">—</span>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 my-6">
-              <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-                <span class="text-[10px] font-bold text-slate-500 block uppercase">Serving</span>
-                <span id="q-current-serving" class="text-2xl font-black text-slate-900 mt-1 block">—</span>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4">
+              <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                <span class="text-[10px] font-bold text-slate-500 block uppercase" data-i18n="current_serving">Serving</span>
+                <span id="q-current-serving" class="text-xl font-black text-slate-900 mt-1 block">—</span>
               </div>
-              <div class="p-4 bg-emerald-50 border-2 border-emerald-500 rounded-2xl text-center relative">
+              <div class="p-3.5 bg-emerald-50 border-2 border-emerald-500 rounded-2xl text-center relative shadow-sm">
                 <div class="absolute -top-1 -right-1 bg-emerald-600 text-white text-[9px] font-bold px-1.5 rounded-bl">YOU</div>
-                <span class="text-[10px] font-bold text-emerald-900 block uppercase">Your Token</span>
-                <span id="q-my-token" class="text-2xl font-black text-emerald-700 mt-1 block">—</span>
+                <span class="text-[10px] font-bold text-emerald-900 block uppercase" data-i18n="your_token">Your Token</span>
+                <span id="q-my-token" class="text-xl font-black text-emerald-700 mt-1 block">—</span>
               </div>
-              <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center">
-                <span class="text-[10px] font-bold text-amber-900 block uppercase">Ahead</span>
-                <span id="q-farmers-ahead" class="text-2xl font-black text-amber-700 mt-1 block">—</span>
+              <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+                <span class="text-[10px] font-bold text-amber-900 block uppercase" data-i18n="farmers_ahead">Ahead</span>
+                <span id="q-farmers-ahead" class="text-xl font-black text-amber-700 mt-1 block">—</span>
               </div>
-              <div class="p-4 bg-teal-50 border border-teal-200 rounded-2xl text-center">
-                <span class="text-[10px] font-bold text-teal-900 block uppercase">Wait</span>
-                <span id="q-wait-time" class="text-2xl font-black text-teal-700 mt-1 block">—</span>
+              <div class="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl text-center">
+                <span class="text-[10px] font-bold text-teal-900 block uppercase" data-i18n="estimated_wait">Wait</span>
+                <span id="q-wait-time" class="text-xl font-black text-teal-700 mt-1 block">—</span>
               </div>
             </div>
 
+            <!-- Progress Bar -->
             <div class="space-y-2">
               <div class="flex justify-between text-xs font-bold text-slate-600">
-                <span>कतार प्रगति</span>
-                <span id="q-progress-pct" class="text-emerald-700">—</span>
+                <span data-i18n="queue_progress">कतार प्रगति</span>
+                <span id="q-progress-pct" class="text-emerald-700 font-extrabold">—</span>
               </div>
               <div class="w-full bg-slate-100 rounded-full h-3 p-0.5 border border-slate-200">
-                <div id="q-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full transition-all duration-500" style="width:0%;"></div>
+                <div id="q-progress-bar" class="bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 h-2 rounded-full transition-all duration-500" style="width:0%;"></div>
               </div>
-              <p id="q-explanation" class="text-xs text-slate-500 pt-1">💡 आप घर पर आराम से प्रतीक्षा कर सकते हैं।</p>
+              <p id="q-explanation" class="text-xs text-slate-500 pt-1 font-medium">💡 आप घर पर आराम से प्रतीक्षा कर सकते हैं।</p>
             </div>
           </div>
 
-          <div class="glass-card p-6 rounded-3xl">
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="text-sm font-extrabold text-slate-900">फसल खरीद प्रगति (7-Stage Journey)</h3>
-              <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full border border-emerald-300">Live Synced</span>
+          <!-- [FEATURE g] Interactive 7-Stage Procurement Journey with Expandable Stage Drawers -->
+          <div class="glass-card p-6 rounded-3xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 class="text-sm font-extrabold text-slate-900" data-i18n="procurement_journey_title">फसल खरीद प्रगति (7-Stage Journey)</h3>
+              <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-full border border-emerald-300">Click any stage to view details</span>
             </div>
-            <div id="procurement-stepper" class="flex flex-col sm:flex-row justify-between gap-4 sm:gap-0"></div>
+            
+            <div id="procurement-stepper" class="flex flex-col sm:flex-row justify-between gap-4 sm:gap-0 pt-2"></div>
+
+            <!-- Expandable Stage Detail Box -->
+            <div id="stage-detail-drawer" class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+              <div class="flex justify-between items-center font-bold text-slate-800">
+                <span id="stage-detail-title">🌾 Stage Details</span>
+                <span id="stage-detail-status" class="text-emerald-700 font-black">Active</span>
+              </div>
+              <p id="stage-detail-body" class="text-slate-600 leading-relaxed">
+                Click any circle above to inspect weighbridge slips, quality moisture assay, and direct PFMS payment references.
+              </p>
+            </div>
+          </div>
+
+          <!-- [FEATURE h] Dedicated Payment Card (PFMS & DBT Tracker) -->
+          <div class="glass-card p-6 rounded-3xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-2 text-emerald-800">
+                <i class="fa-solid fa-money-bill-wave text-base"></i>
+                <h3 class="text-sm font-extrabold text-slate-900" data-i18n="payment_card_title">DBT भुगतान विवरण (PFMS Live)</h3>
+              </div>
+              <span id="payment-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">PFMS Pending</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-slate-400 block text-[10px] uppercase font-bold" data-i18n="est_payout">Total MSP Value</span>
+                <span id="pay-total-amt" class="text-base font-black text-slate-900 mt-0.5 block">₹ 0.00</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-slate-400 block text-[10px] uppercase font-bold" data-i18n="dbt_status">DBT Status</span>
+                <span id="pay-status-text" class="font-bold text-slate-800 mt-0.5 block">Sanction Awaited</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
+                <span class="text-slate-400 block text-[10px] uppercase font-bold" data-i18n="pfms_ref">PFMS Ref / Tx ID</span>
+                <span id="pay-tx-id" class="font-mono font-bold text-slate-800 mt-0.5 block truncate">—</span>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-500 font-medium">
+              💡 MSP भुगतान सीधे किसान के आधार से जुड़े बैंक खाते में PFMS Direct Benefit Transfer द्वारा 48 घंटों में अंतरित किया जाता है।
+            </p>
           </div>
         </div>
 
+        <!-- Right Column: Digital Gate Pass + Missed Slot Recovery + Nearby Mandis -->
         <div class="lg:col-span-5 space-y-6">
-          <div id="printable-pass"></div>
 
-          <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 space-y-3">
-            <div class="flex items-center gap-2 text-indigo-900">
-              <i class="fa-solid fa-arrows-rotate"></i>
-              <h4 class="font-extrabold text-sm">छूटे हुए स्लॉट की पुनर्बहाली</h4>
-            </div>
-            <p class="text-xs text-indigo-800 leading-relaxed">क्या आपका स्लॉट छूट गया? सिस्टम बिना कतार दंड के अगला उत्तम स्लॉट खोजता है।</p>
-            <button onclick="handleMissedSlotRecovery()" class="w-full py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold rounded-xl transition">🔄 अगला स्लॉट खोजें</button>
+          <!-- Digital Gate Pass Printable Widget -->
+          <div class="print-container">
+            <div id="printable-pass"></div>
           </div>
 
+          <!-- Dynamic Missed Slot Smart Recovery -->
+          <div class="p-5 rounded-3xl bg-gradient-to-br from-indigo-50 via-blue-50 to-indigo-100 border border-indigo-200 space-y-3 shadow-sm">
+            <div class="flex items-center gap-2 text-indigo-900">
+              <i class="fa-solid fa-arrows-rotate text-base"></i>
+              <h4 class="font-extrabold text-sm" data-i18n="missed_slot_title">छूटे हुए स्लॉट की पुनर्बहाली</h4>
+            </div>
+            <p class="text-xs text-indigo-800 leading-relaxed font-medium" data-i18n="missed_slot_desc">
+              क्या आपका स्लॉट छूट गया? सिस्टम बिना कतार दंड के अगला उत्तम स्लॉट खोजता है।
+            </p>
+            <button onclick="handleMissedSlotRecovery()" class="w-full py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold rounded-xl shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left"></i><span data-i18n="missed_slot_btn">🔄 अगला उपलब्ध स्लॉट पाएं</span>
+            </button>
+          </div>
+
+          <!-- [FEATURE d] Nearby Mandi Centres Comparison Table / Cards -->
           <div class="glass-card p-5 rounded-3xl space-y-3">
-            <div class="flex justify-between items-center">
-              <h4 class="font-extrabold text-sm text-slate-900">📍 निकटवर्ती अनाज मंडियां</h4>
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h4 class="font-extrabold text-sm text-slate-900" data-i18n="nearby_centres_title">📍 निकटवर्ती अनाज मंडियां व लोड</h4>
               <span class="text-[11px] text-emerald-700 font-bold" id="nearby-count">—</span>
             </div>
-            <div id="nearby-centres-list" class="space-y-2"></div>
+            <div id="nearby-centres-list" class="space-y-2.5"></div>
           </div>
         </div>
       </div>
 
-      <div class="glass-card p-6 rounded-3xl space-y-4">
+      <!-- [FEATURE 6] Hourly Slot Allocation Matrix with "YOUR SLOT" highlight -->
+      <div id="slot-section" class="glass-card p-6 rounded-3xl space-y-4">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
           <div>
-            <h3 class="text-sm font-extrabold text-slate-900">स्लॉट आवंटन (Slot Booking)</h3>
-            <p class="text-xs text-slate-500">किसी उपलब्ध स्लॉट पर क्लिक करके तुरंत बुक करें</p>
+            <h3 class="text-sm font-extrabold text-slate-900" data-i18n="slot_allocation_title">स्लॉट आवंटन (Slot Booking)</h3>
+            <p class="text-xs text-slate-500" data-i18n="slot_allocation_sub">उपलब्ध स्लॉट चुनकर तुरंत टोकन प्राप्त करें</p>
           </div>
+          <span class="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">1-Hour Regulated Windows</span>
         </div>
-        <div id="slot-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+        <div id="slot-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"></div>
       </div>
     </main>
 
     <!-- ============ OPERATOR VIEW ============ -->
     <main id="view-operator" class="hidden flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <div class="glass-card p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      
+      <!-- Operator Header with Centre Switcher -->
+      <div class="glass-card p-5 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-2xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-2xl">⚖️</div>
           <div>
-            <h2 class="text-lg font-black">Operator Control Console</h2>
-            <p id="operator-centre-label" class="text-xs text-slate-300 mt-0.5">—</p>
+            <h2 class="text-lg font-black" data-i18n="operator_console">Operator Control Console</h2>
+            <!-- [FEATURE 7] Operator Mandi Centre Switcher -->
+            <div class="flex items-center gap-2 mt-1">
+              <span class="text-xs text-slate-300 font-bold" data-i18n="select_operator_centre">Mandi:</span>
+              <select id="operator-centre-select" onchange="handleOperatorCentreChange(this.value)" class="bg-slate-800 text-white text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400"></select>
+            </div>
           </div>
         </div>
         <div class="flex flex-wrap gap-2 w-full md:w-auto">
-          <button onclick="operatorCallNext()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow flex items-center gap-1.5">
-            <i class="fa-solid fa-bullhorn"></i><span>Call Next Token</span>
+          <button onclick="operatorCallNext()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-bullhorn"></i><span data-i18n="call_next_btn">Call Next Token</span>
           </button>
-          <button onclick="operatorBroadcastDelay()" class="px-3 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5">
-            <i class="fa-solid fa-triangle-exclamation"></i><span>Delay Alert</span>
+          <button onclick="operatorBroadcastDelay()" class="px-3 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-triangle-exclamation"></i><span data-i18n="delay_alert_btn">Delay Alert</span>
           </button>
         </div>
       </div>
 
+      <!-- Live Mandi Counters -->
       <div id="operator-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
 
+      <!-- Operator 7-Stage Workflow Box -->
       <div class="glass-card p-6 rounded-3xl space-y-5">
-        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-          <h3 class="text-sm font-extrabold text-slate-900">Current Token — <span id="operator-current-token" class="text-emerald-700">—</span></h3>
-          <div class="flex items-center gap-2">
-            <input id="operator-token-input" type="text" placeholder="Enter token e.g. A-52" class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold w-40">
-            <button onclick="operatorLoadToken()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg">Load</button>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
+          <h3 class="text-sm font-extrabold text-slate-900">Current Serving Token — <span id="operator-current-token" class="text-emerald-700">—</span></h3>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <input id="operator-token-input" type="text" placeholder="e.g. A-52" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold w-full sm:w-40 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <button onclick="operatorLoadToken()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">Load</button>
           </div>
         </div>
-        <div id="operator-farmer-detail" class="text-sm text-slate-500">Enter a token number above to load a farmer's procurement record.</div>
+        <div id="operator-farmer-detail" class="text-sm text-slate-500 font-medium">Enter a token number above or click "Call Next Token" to start procurement.</div>
       </div>
     </main>
 
     <!-- ============ ADMIN VIEW ============ -->
     <main id="view-admin" class="hidden flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <div class="glass-card p-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 text-white">
-        <h2 class="text-lg font-black">District Mandi Dashboard &amp; Load Balancer</h2>
-        <p class="text-xs text-slate-300 mt-0.5">Karnal, Haryana</p>
+      <div class="glass-card p-5 rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 text-white shadow-xl">
+        <h2 class="text-lg font-black" data-i18n="admin_dashboard_title">District Mandi Dashboard &amp; Load Balancer</h2>
+        <p class="text-xs text-slate-300 mt-0.5">District: Karnal, Haryana (SIH Live Procurement Telemetry)</p>
       </div>
 
       <div id="admin-metrics" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"></div>
 
       <div class="glass-card p-6 rounded-3xl space-y-4">
         <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-          <h3 class="text-sm font-extrabold text-slate-900">Procurement Centres</h3>
-          <button onclick="triggerAdminLoadBalance()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">⚡ Run AI Load Balance</button>
+          <h3 class="text-sm font-extrabold text-slate-900">All Procurement Centres (GIS Load Analysis)</h3>
+          <button onclick="triggerAdminLoadBalance()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow" data-i18n="run_ai_balancer_btn">⚡ Run AI Load Balance</button>
         </div>
         <div id="admin-centres-table" class="overflow-x-auto"></div>
       </div>
@@ -331,7 +451,28 @@
       <div id="admin-recommendations" class="hidden glass-card p-6 rounded-3xl space-y-3"></div>
     </main>
 
-    <footer class="text-center text-[11px] text-slate-400 py-4">KisanQueue — Smart India Hackathon 2026 Demo</footer>
+    <!-- Mobile-Responsive Bottom Navigation Bar -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-40 flex justify-around py-2 text-[10px] text-slate-500 font-bold shadow-lg">
+      <button onclick="setRole('farmer'); scrollToSection('view-farmer')" class="bottom-nav-item active flex flex-col items-center gap-0.5">
+        <i class="fa-solid fa-house text-sm"></i><span data-i18n="nav_home">Home</span>
+      </button>
+      <button onclick="setRole('farmer'); scrollToSection('slot-section')" class="bottom-nav-item flex flex-col items-center gap-0.5">
+        <i class="fa-solid fa-calendar text-sm"></i><span data-i18n="nav_myslot">Slot</span>
+      </button>
+      <button onclick="setRole('farmer'); scrollToSection('nearby-centres-list')" class="bottom-nav-item flex flex-col items-center gap-0.5">
+        <i class="fa-solid fa-location-dot text-sm"></i><span data-i18n="nav_centres">Mandi</span>
+      </button>
+      <button onclick="setRole('farmer'); scrollToSection('procurement-stepper')" class="bottom-nav-item flex flex-col items-center gap-0.5">
+        <i class="fa-solid fa-list-check text-sm"></i><span data-i18n="nav_status">Status</span>
+      </button>
+      <button onclick="toggleUserMenu()" class="bottom-nav-item flex flex-col items-center gap-0.5">
+        <i class="fa-solid fa-user text-sm"></i><span data-i18n="nav_profile">Profile</span>
+      </button>
+    </div>
+
+    <footer class="text-center text-[11px] text-slate-400 py-4 no-print">
+      KisanQueue — Smart Farmer Procurement Platform · Smart India Hackathon 2026 Prototype
+    </footer>
   </div>
 
   <!-- ============ BOOKING MODAL ============ -->
@@ -403,9 +544,12 @@
             <option value="08:00 - 09:00 AM">08:00 - 09:00 AM</option>
             <option value="09:00 - 10:00 AM">09:00 - 10:00 AM</option>
             <option value="10:00 - 11:00 AM" selected>10:00 - 11:00 AM (Recommended)</option>
-            <option value="11:00 - 12:00 PM">11:00 AM - 12:00 PM</option>
+            <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
             <option value="12:00 - 01:00 PM">12:00 - 01:00 PM</option>
             <option value="01:00 - 02:00 PM">01:00 - 02:00 PM</option>
+            <option value="02:00 - 03:00 PM">02:00 - 03:00 PM</option>
+            <option value="03:00 - 04:00 PM">03:00 - 04:00 PM</option>
+            <option value="04:00 - 05:00 PM">04:00 - 05:00 PM</option>
           </select>
         </div>
 
@@ -430,10 +574,45 @@
     </div>
   </div>
 
-  <!-- ============ SMS DRAWER ============ -->
+  <!-- ============ HELP & GRIEVANCE MODAL ============ -->
+  <div id="complaint-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+          <i class="fa-solid fa-headset text-emerald-600"></i> किसान सहायता एवं शिकायत निवारण
+        </h3>
+        <button onclick="closeComplaintModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="handleComplaintSubmit(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">समस्या का प्रकार (Category)</label>
+          <select id="cmp-category" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option>धर्मकांटा कतार में अधिक देरी (Weighbridge Queue Delay)</option>
+            <option>फसल गुणवत्ता ग्रेडिंग असंतोष (Quality / Moisture Issue)</option>
+            <option>DBT भुगतान स्थिति में विलंब (Payment Delay)</option>
+            <option>स्लॉट अनुपलब्धता (Slot Availability Issue)</option>
+            <option>अन्य सामान्य सहायता (General Grievance)</option>
+          </select>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">विवरण (Description)</label>
+          <textarea id="cmp-desc" required rows="3" placeholder="अपनी समस्या संक्षेप में लिखें..." class="w-full border border-slate-300 rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closeComplaintModal()" class="px-4 py-2 bg-slate-100 font-bold rounded-xl text-slate-700">बंद करें</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow">शिकायत दर्ज करें</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ SMS & NOTIFICATIONS DRAWER ============ -->
   <aside id="sms-drawer" class="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200">
     <div class="p-4 bg-emerald-900 text-white flex justify-between items-center">
-      <h3 class="font-bold text-sm">📱 SMS &amp; अलर्ट</h3>
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-bell text-amber-400"></i>
+        <h3 class="font-bold text-sm">📱 SMS &amp; सरकारी अलर्ट</h3>
+      </div>
       <button onclick="toggleSmsDrawer()" class="text-white hover:text-emerald-300 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
     </div>
     <div id="sms-logs-container" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50"></div>
@@ -441,6 +620,9 @@
 
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none"></div>
 
+  <!-- Script dependencies -->
+  <script src="mock-data.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
