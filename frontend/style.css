@@ -1,11 +1,11 @@
-/* KisanQueue — Enhanced Stylesheet */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap');
+/* KisanQueue — Exact Pixel-Perfect Design Matching Screenshot */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap');
 
 :root {
-  --primary: #059669;
-  --primary-dark: #065f46;
-  --primary-light: #10b981;
-  --amber: #d97706;
+  --primary-mandi: #044e39;
+  --primary-light: #0d7a59;
+  --primary-badge: #10b981;
+  --amber-accent: #f59e0b;
 }
 
 * { box-sizing: border-box; }
@@ -17,54 +17,64 @@ html, body {
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #1e293b;
+  background-color: #f3f6f4;
+  margin: 0;
+  padding: 0;
   -webkit-tap-highlight-color: transparent;
-  position: relative;
-  background:
-    linear-gradient(180deg, rgba(6,78,59,0.55) 0%, rgba(240,253,244,0.55) 55%, rgba(241,245,249,0.85) 100%),
-    url('https://images.unsplash.com/photo-1607460694867-af0c6d6f2c52?fm=jpg&q=80&w=2400&auto=format&fit=crop') center top / cover no-repeat fixed;
-  background-attachment: fixed;
-  padding-bottom: 60px; /* Space for bottom nav on mobile */
 }
-
-@media (min-width: 768px) {
-  body {
-    padding-bottom: 0;
-  }
-}
-
-.bg-decor { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 
 .font-hindi { font-family: 'Tiro Devanagari Hindi', 'Plus Jakarta Sans', sans-serif; }
 
-.gov-ribbon { height: 4px; background: linear-gradient(90deg, #ff9933 33.3%, #ffffff 33.3% 66.6%, #138808 66.6%); }
+.gov-ribbon { height: 3px; background: linear-gradient(90deg, #ff9933 33.3%, #ffffff 33.3% 66.6%, #138808 66.6%); }
+
+.ticker-bar {
+  background: #063c2c;
+  color: #d1fae5;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
 }
 
-.pulse-ring { position: relative; }
-.pulse-ring::before {
-  content: ''; position: absolute; inset: -4px; border-radius: inherit; background: inherit;
-  opacity: 0.6; animation: pulseAnimation 2s cubic-bezier(0.24, 0, 0.38, 1) infinite; z-index: -1;
+.hero-banner {
+  background: linear-gradient(90deg, #064e3b 0%, #065f46 60%, #047857 100%);
+  border-radius: 24px;
 }
-@keyframes pulseAnimation { 0% { transform: scale(1); opacity: .7; } 70% { transform: scale(1.15); opacity: 0; } 100% { transform: scale(1.2); opacity: 0; } }
 
-.token-card {
-  background: radial-gradient(circle at 10% 20%, rgb(240, 253, 244) 0%, rgb(255, 255, 255) 90%);
-  border: 2px dashed #10b981;
+.recommend-banner {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 20px;
+}
+
+.official-pass-card {
+  background: #ffffff;
+  border: 2px dashed #34d399;
+  border-radius: 24px;
   position: relative;
   overflow: hidden;
 }
-.token-card::before, .token-card::after {
-  content: ''; position: absolute; width: 22px; height: 22px; background: #f1f5f9; border-radius: 50%;
+
+.official-pass-card::before, .official-pass-card::after {
+  content: ''; position: absolute; width: 22px; height: 22px; background: #f3f6f4; border-radius: 50%;
   top: 50%; transform: translateY(-50%);
 }
-.token-card::before { left: -12px; border-right: 2px dashed #10b981; }
-.token-card::after { right: -12px; border-left: 2px dashed #10b981; }
+.official-pass-card::before { left: -12px; border-right: 2px dashed #34d399; }
+.official-pass-card::after { right: -12px; border-left: 2px dashed #34d399; }
+
+.live-controls-bar {
+  background: #0f172a;
+  color: #e2e8f0;
+}
 
 .step-item { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1; cursor: pointer; }
 .step-item:not(:last-child)::after {
@@ -76,47 +86,52 @@ body {
   background: #fff; border: 3px solid #cbd5e1; z-index: 2; font-weight: 700; font-size: 13px; transition: all .3s ease;
 }
 .step-item.completed .step-circle { background: #10b981; border-color: #059669; color: #fff; box-shadow: 0 0 12px rgba(16,185,129,.4); }
-.step-item.active .step-circle { background: #fef3c7; border-color: #d97706; color: #92400e; animation: pulseAnimation 2s infinite; }
+.step-item.active .step-circle { background: #fef3c7; border-color: #d97706; color: #92400e; animation: pulse 2s infinite; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
-/* ROBUST PRINT STYLES */
+/* Language pill toggle buttons */
+.lang-btn {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.lang-btn.active {
+  background-color: #047857;
+  color: #ffffff;
+}
+.lang-btn:not(.active) {
+  background-color: transparent;
+  color: #64748b;
+}
+.lang-btn:not(.active):hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Print Pass Styles */
 @media print {
   body {
     background: #fff !important;
     padding: 0 !important;
     margin: 0 !important;
   }
-  header, footer, .gov-ribbon, #demo-menu, #sms-drawer, #toast-container, .mobile-bottom-nav,
-  #ai-recommend-banner, #view-operator, #view-admin, #view-auth, #booking-modal, #complaint-modal,
+  header, footer, .gov-ribbon, .ticker-bar, .live-controls-bar, #view-operator, #view-admin, #view-auth,
+  .hero-banner, .recommend-banner, #what-next-card, #slot-section, #nearby-centres-section, #procurement-section,
   .no-print, main > *:not(.print-container) {
     display: none !important;
   }
-  #view-farmer, main {
-    padding: 0 !important;
-    margin: 0 !important;
-    max-width: 100% !important;
-  }
-  .print-container, #printable-pass, .token-card {
+  .print-container, #printable-pass, .official-pass-card {
     display: block !important;
-    position: static !important;
     width: 100% !important;
-    max-width: 500px !important;
+    max-width: 550px !important;
     margin: 20px auto !important;
     border: 2px solid #000 !important;
-    padding: 20px !important;
+    padding: 24px !important;
     box-shadow: none !important;
     background: #fff !important;
     page-break-inside: avoid;
   }
-}
-
-.auth-tab { transition: all .2s ease; }
-
-.bottom-nav-item.active {
-  color: #059669;
-  font-weight: 800;
 }

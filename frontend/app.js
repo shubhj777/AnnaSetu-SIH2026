@@ -100,84 +100,206 @@ async function fallbackMockApi(path, method, body) {
 }
 
 // -------------------------------------------------------------
-// AUTHENTICATION (Lightweight Browser Store)
+// AUTHENTICATION & ROLE-BASED LOGIN (Multi-Role System)
 // -------------------------------------------------------------
 function getUsers() {
   try { return JSON.parse(localStorage.getItem("kq_users") || "[]"); } catch { return []; }
 }
 function saveUsers(users) { localStorage.setItem("kq_users", JSON.stringify(users)); }
 
-function setAuthTab(tab) {
-  const isLogin = tab === "login";
-  document.getElementById("login-form").classList.toggle("hidden", !isLogin);
-  document.getElementById("register-form").classList.toggle("hidden", isLogin);
-  document.getElementById("auth-tab-login").className = isLogin ? "auth-tab flex-1 py-2 rounded-lg text-sm font-bold bg-emerald-700 text-white shadow" : "auth-tab flex-1 py-2 rounded-lg text-sm font-bold text-slate-600";
-  document.getElementById("auth-tab-register").className = !isLogin ? "auth-tab flex-1 py-2 rounded-lg text-sm font-bold bg-emerald-700 text-white shadow" : "auth-tab flex-1 py-2 rounded-lg text-sm font-bold text-slate-600";
+let currentAuthRole = "farmer";
+
+function setRoleAuthTab(role) {
+  currentAuthRole = role;
+  const roles = ["farmer", "operator", "admin"];
+  roles.forEach(r => {
+    const tabBtn = document.getElementById(`auth-tab-${r}`);
+    const formEl = document.getElementById(`form-role-${r}`);
+    const isActive = r === role;
+    if (tabBtn) {
+      tabBtn.className = isActive 
+        ? "auth-role-tab flex-1 py-2 rounded-xl text-xs font-black transition bg-emerald-700 text-white shadow"
+        : "auth-role-tab flex-1 py-2 rounded-xl text-xs font-black transition text-slate-600 hover:text-slate-900";
+    }
+    if (formEl) {
+      formEl.classList.toggle("hidden", !isActive);
+    }
+  });
 }
 
-function handleRegister(event) {
-  event.preventDefault();
-  const name = document.getElementById("reg-name").value.trim();
-  const mobile = document.getElementById("reg-mobile").value.trim();
-  const village = document.getElementById("reg-village").value.trim();
-  const password = document.getElementById("reg-password").value;
-  const errEl = document.getElementById("register-error");
-  errEl.classList.add("hidden");
+function setFarmerSubTab(subTab) {
+  const isLogin = subTab === "login";
+  const loginForm = document.getElementById("farmer-login-form");
+  const regForm = document.getElementById("farmer-register-form");
+  const tabLogin = document.getElementById("farmer-subtab-login");
+  const tabReg = document.getElementById("farmer-subtab-register");
 
-  const users = getUsers();
-  if (users.some(u => u.mobile === mobile)) {
-    errEl.textContent = "इस मोबाइल नंबर से पहले से खाता मौजूद है। कृपया लॉगिन करें।";
-    errEl.classList.remove("hidden");
+  if (loginForm) loginForm.classList.toggle("hidden", !isLogin);
+  if (regForm) regForm.classList.toggle("hidden", isLogin);
+  if (tabLogin) tabLogin.className = isLogin ? "flex-1 py-1.5 rounded-lg font-bold bg-white text-emerald-800 shadow-sm" : "flex-1 py-1.5 rounded-lg font-bold text-slate-500";
+  if (tabReg) tabReg.className = !isLogin ? "flex-1 py-1.5 rounded-lg font-bold bg-white text-emerald-800 shadow-sm" : "flex-1 py-1.5 rounded-lg font-bold text-slate-500";
+}
+
+function handleFarmerLoginSubmit(event) {
+  event.preventDefault();
+  const identifier = document.getElementById("f-login-mobile").value.trim();
+  const otp = document.getElementById("f-login-otp").value.trim();
+  const errEl = document.getElementById("f-login-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  if (!identifier) {
+    if (errEl) { errEl.textContent = "कृपया मोबाइल नंबर या किसान ID दर्ज करें।"; errEl.classList.remove("hidden"); }
     return;
   }
-  const farmerId = "FID-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-  users.push({ name, mobile, village, password, farmerId });
-  saveUsers(users);
-  loginAs({ name, mobile, village, farmerId, tokenNumber: null });
-  showToast("खाता सफलतापूर्वक बना! अब अपना पहला स्लॉट बुक करें।", "success");
-  setTimeout(openBookingModal, 400);
-}
 
-function handleLogin(event) {
-  event.preventDefault();
-  const mobile = document.getElementById("login-mobile").value.trim();
-  const password = document.getElementById("login-password").value;
-  const errEl = document.getElementById("login-error");
-  errEl.classList.add("hidden");
-
+  // Check existing users or default demo user
   const users = getUsers();
-  const found = users.find(u => u.mobile === mobile && u.password === password);
-  if (!found) {
-    errEl.textContent = "गलत मोबाइल नंबर या पासवर्ड।";
-    errEl.classList.remove("hidden");
-    return;
+  const found = users.find(u => u.mobile === identifier || u.farmerId === identifier);
+
+  if (found) {
+    loginAs({ ...found, role: "farmer", tokenNumber: found.tokenNumber || (identifier === "9812345678" ? "#A-52" : null) });
+  } else if (identifier === "9812345678" || identifier === "FID-HR-78921") {
+    handleDemoFarmerLogin();
+  } else {
+    // Dynamically auto-create/login for demo convenience
+    const newFarmer = {
+      role: "farmer",
+      name: "किसान (Farmer " + identifier.slice(-4) + ")",
+      mobile: identifier,
+      village: "Karnal Rural, Haryana",
+      farmerId: "FID-HR-" + Math.floor(10000 + Math.random() * 90000),
+      tokenNumber: null
+    };
+    users.push(newFarmer);
+    saveUsers(users);
+    loginAs(newFarmer);
   }
-  loginAs({ ...found, tokenNumber: found.tokenNumber || null });
 }
 
-function handleDemoLogin() {
+function handleDemoFarmerLogin() {
   loginAs({
+    role: "farmer",
     name: "Ramesh Kumar (रमेश कुमार)",
     mobile: "9812345678",
-    village: "Taraori ABC, Karnal",
+    village: "Taraori ABC (गाँव ताराओड़ी)",
     farmerId: "FID-HR-78921",
+    crop: "Wheat (गेहूँ) (50 क्विंटल)",
     tokenNumber: "#A-52"
   });
 }
 
+function handleFarmerRegisterSubmit(event) {
+  event.preventDefault();
+  const name = document.getElementById("f-reg-name").value.trim();
+  const mobile = document.getElementById("f-reg-mobile").value.trim();
+  const village = document.getElementById("f-reg-village").value.trim();
+  const password = document.getElementById("f-reg-password").value;
+  const errEl = document.getElementById("f-reg-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  const users = getUsers();
+  if (users.some(u => u.mobile === mobile)) {
+    if (errEl) { errEl.textContent = "इस मोबाइल नंबर से पहले से खाता मौजूद है। कृपया लॉगिन करें।"; errEl.classList.remove("hidden"); }
+    return;
+  }
+
+  const farmerId = "FID-HR-" + Math.floor(10000 + Math.random() * 90000);
+  const user = { role: "farmer", name, mobile, village, password, farmerId, tokenNumber: null };
+  users.push(user);
+  saveUsers(users);
+  loginAs(user);
+  showToast("खाता सफलतापूर्वक बना! अब अपना पहला स्लॉट बुक करें।", "success");
+  setTimeout(openBookingModal, 400);
+}
+
+function handleOperatorLoginSubmit(event) {
+  event.preventDefault();
+  const opId = document.getElementById("op-login-id").value.trim();
+  const centreId = document.getElementById("op-login-centre").value;
+  loginAs({
+    role: "operator",
+    name: `Operator (${opId})`,
+    opId: opId,
+    centreId: centreId
+  });
+}
+
+function handleDemoOperatorLogin() {
+  loginAs({
+    role: "operator",
+    name: "Operator Desk #1",
+    opId: "OP-KNL-01",
+    centreId: "centre-a"
+  });
+}
+
+function handleAdminLoginSubmit(event) {
+  event.preventDefault();
+  const admId = document.getElementById("adm-login-id").value.trim();
+  loginAs({
+    role: "admin",
+    name: `District Admin (${admId})`,
+    adminId: admId,
+    jurisdiction: "District Karnal, Haryana"
+  });
+}
+
+function handleDemoAdminLogin() {
+  loginAs({
+    role: "admin",
+    name: "District Administrator Karnal",
+    adminId: "ADM-KNL-HQ",
+    jurisdiction: "District Karnal, Haryana"
+  });
+}
+
+function quickSwitchRole(role) {
+  if (role === "operator") {
+    handleDemoOperatorLogin();
+  } else if (role === "admin") {
+    handleDemoAdminLogin();
+  } else {
+    handleDemoFarmerLogin();
+  }
+}
+
 function loginAs(user) {
   STATE.user = user;
-  STATE.myTokenNumber = user.tokenNumber || (user.mobile === "9812345678" ? "#A-52" : null);
+  STATE.role = user.role || "farmer";
+  if (user.role === "operator") {
+    STATE.operatorCentreId = user.centreId || "centre-a";
+  }
+  if (user.role === "farmer") {
+    STATE.myTokenNumber = user.tokenNumber || (user.mobile === "9812345678" ? "#A-52" : null);
+  }
+
+  // Persist session in localStorage
   localStorage.setItem("kq_session", JSON.stringify(user));
-  document.getElementById("view-auth").classList.add("hidden");
-  document.getElementById("app-shell").classList.remove("hidden");
-  document.getElementById("user-avatar").textContent = (user.name || "?").charAt(0).toUpperCase();
-  document.getElementById("user-menu-name").textContent = user.name;
-  document.getElementById("user-menu-mobile").textContent = user.mobile;
-  document.getElementById("farmer-profile-name").textContent = "नमस्ते, " + user.name;
-  document.getElementById("farmer-profile-details").textContent =
-    `गाँव: ${user.village} | किसान ID: ${user.farmerId}`;
+
+  // Switch views
+  const authEl = document.getElementById("view-auth");
+  const appEl = document.getElementById("app-shell");
+  if (authEl) authEl.classList.add("hidden");
+  if (appEl) appEl.classList.remove("hidden");
+
+  // Update header and profile names
+  const headerUserEl = document.getElementById("header-user-name");
+  if (headerUserEl) {
+    const firstName = (user.name || "User").split(" ")[0];
+    headerUserEl.textContent = firstName;
+  }
+
+  const heroNameEl = document.getElementById("farmer-hero-name");
+  if (heroNameEl) heroNameEl.textContent = user.name || "Ramesh Kumar (रमेश कुमार)";
+
+  const heroDetailsEl = document.getElementById("farmer-hero-details");
+  if (heroDetailsEl) {
+    heroDetailsEl.textContent = `गाँव: ${user.village || 'Taraori ABC (गाँव ताराओड़ी)'} | किसान ID: ${user.farmerId || 'FID-HR-78921'} | फसल: ${user.crop || 'Wheat (गेहूँ) (50 क्विंटल)'}`;
+  }
+
   bootApp();
+  setRole(STATE.role);
+  showToast(`✓ ${user.name || 'User'} के रूप में लॉगिन सफल`, "success");
 }
 
 function logout() {
@@ -185,14 +307,20 @@ function logout() {
   if (STATE.pollTimer) clearInterval(STATE.pollTimer);
   STATE.user = null;
   STATE.myTokenNumber = null;
-  document.getElementById("app-shell").classList.add("hidden");
-  document.getElementById("view-auth").classList.remove("hidden");
+  const authEl = document.getElementById("view-auth");
+  const appEl = document.getElementById("app-shell");
+  if (appEl) appEl.classList.add("hidden");
+  if (authEl) authEl.classList.remove("hidden");
+  showToast("लॉगआउट हुआ।", "info");
 }
 
 function tryRestoreSession() {
   try {
     const saved = JSON.parse(localStorage.getItem("kq_session") || "null");
-    if (saved) { loginAs(saved); return true; }
+    if (saved && saved.role) {
+      loginAs(saved);
+      return true;
+    }
   } catch {}
   return false;
 }
@@ -202,8 +330,16 @@ function tryRestoreSession() {
 // -------------------------------------------------------------
 function changeLanguage(langCode) {
   STATE.lang = langCode;
+  localStorage.setItem("kq_lang", langCode);
+  
+  // Update lang pills styling
+  document.querySelectorAll(".lang-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.lang === langCode);
+  });
+
   const sel = document.getElementById("lang-select");
   if (sel) sel.value = langCode;
+
   if (typeof translateUI === "function") {
     translateUI(langCode);
   }
@@ -213,16 +349,23 @@ function setRole(roleName) {
   STATE.role = roleName;
   document.querySelectorAll(".role-tab-btn").forEach(b => {
     const active = b.dataset.role === roleName;
-    b.className = active ? "role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-700 text-white shadow" : "role-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-700";
+    b.className = active 
+      ? "role-tab-btn px-4 py-1.5 rounded-xl text-xs font-extrabold transition bg-emerald-700 text-white shadow flex items-center gap-1.5" 
+      : "role-tab-btn px-4 py-1.5 rounded-xl text-xs font-bold transition text-slate-700 hover:text-slate-900 flex items-center gap-1.5";
   });
   document.querySelectorAll(".role-tab-btn-m").forEach(b => {
     const active = b.dataset.role === roleName;
-    b.className = active ? "role-tab-btn-m flex-1 py-1.5 text-center text-emerald-800 border-b-2 border-emerald-700 font-bold" : "role-tab-btn-m flex-1 py-1.5 text-center text-slate-500 border-b-2 border-transparent font-bold";
+    b.className = active 
+      ? "role-tab-btn-m flex-1 py-1 text-center text-emerald-800 border-b-2 border-emerald-700 font-bold" 
+      : "role-tab-btn-m flex-1 py-1 text-center text-slate-500 border-b-2 border-transparent font-bold";
   });
-  document.getElementById("view-farmer").classList.toggle("hidden", roleName !== "farmer");
-  document.getElementById("view-operator").classList.toggle("hidden", roleName !== "operator");
-  document.getElementById("view-admin").classList.toggle("hidden", roleName !== "admin");
-  document.getElementById("demo-menu").classList.add("hidden");
+  
+  const fView = document.getElementById("view-farmer");
+  const opView = document.getElementById("view-operator");
+  const admView = document.getElementById("view-admin");
+  if (fView) fView.classList.toggle("hidden", roleName !== "farmer");
+  if (opView) opView.classList.toggle("hidden", roleName !== "operator");
+  if (admView) admView.classList.toggle("hidden", roleName !== "admin");
 
   if (roleName === "operator") refreshOperatorView();
   if (roleName === "admin") refreshAdminView();
@@ -233,18 +376,9 @@ function scrollToSection(id) {
   if (el) el.scrollIntoView({ behavior: 'smooth' });
 }
 
-function toggleUserMenu() { document.getElementById("user-menu").classList.toggle("hidden"); }
-function toggleDemoMenu() { document.getElementById("demo-menu").classList.toggle("hidden"); }
-
-document.addEventListener("click", (e) => {
-  const menu = document.getElementById("user-menu");
-  if (menu && !menu.classList.contains("hidden") && !e.target.closest("#user-menu") && !e.target.closest("[onclick=\"toggleUserMenu()\"]")) {
-    menu.classList.add("hidden");
-  }
-});
-
 function toggleSmsDrawer() {
   const drawer = document.getElementById("sms-drawer");
+  if (!drawer) return;
   const opening = drawer.classList.contains("translate-x-full");
   drawer.classList.toggle("translate-x-full");
   if (opening) {
@@ -258,8 +392,10 @@ function showToast(msg, type = "info") {
   el.className = `${colors[type] || colors.info} text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto border border-white/20`;
   el.textContent = msg;
   const container = document.getElementById("toast-container");
-  container.appendChild(el);
-  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(() => el.remove(), 300); }, 3200);
+  if (container) {
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(() => el.remove(), 300); }, 3200);
+  }
 }
 
 // -------------------------------------------------------------
@@ -270,12 +406,12 @@ async function bootApp() {
   changeLanguage(savedLang);
 
   await loadCentres();
-  setRole("farmer");
   await refreshFarmerData();
   populateBookingCentreOptions();
   populateOperatorCentreOptions();
   calculateFormEstimates();
-  document.getElementById("form-date").value = new Date().toISOString().slice(0, 10);
+  const dateEl = document.getElementById("form-date");
+  if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
 
   // Background polling for live queue radar
   if (STATE.pollTimer) clearInterval(STATE.pollTimer);
@@ -283,7 +419,7 @@ async function bootApp() {
     if (STATE.role === "farmer" && STATE.myTokenNumber) {
       await refreshFarmerData(true);
     }
-  }, 6000);
+  }, 5000);
 }
 
 async function loadCentres() {
@@ -316,12 +452,10 @@ async function refreshFarmerData(silent = false) {
     renderDigitalPass();
     renderStepper();
     renderPaymentCard();
-    renderGateVision();
     renderSlotMatrix(STATE.myBooking.centre_id);
     refreshSmsLogs();
   } catch (e) {
     if (!silent) showToast("बुकिंग लोड करने में समस्या हुई।", "error");
-    // Attempt restoring from offline local storage
     const cached = JSON.parse(localStorage.getItem("kq_cached_farmer_data") || "null");
     if (cached) {
       STATE.myBooking = cached.booking;
@@ -333,7 +467,6 @@ async function refreshFarmerData(silent = false) {
       renderDigitalPass();
       renderStepper();
       renderPaymentCard();
-      renderGateVision();
       renderSlotMatrix(STATE.myBooking.centre_id);
     } else {
       renderFarmerEmptyState();
@@ -342,121 +475,186 @@ async function refreshFarmerData(silent = false) {
 }
 
 function renderFarmerEmptyState() {
-  document.getElementById("q-centre-name").textContent = "कोई सक्रिय बुकिंग नहीं";
-  document.getElementById("q-slot-window").textContent = "—";
-  ["q-current-serving", "q-my-token", "q-farmers-ahead", "q-wait-time"].forEach(id => document.getElementById(id).textContent = "—");
-  document.getElementById("q-progress-pct").textContent = "—";
-  document.getElementById("q-progress-bar").style.width = "0%";
-  document.getElementById("q-explanation").textContent = "अभी तक कोई स्लॉट बुक नहीं किया गया — ऊपर 'नया स्लॉट बुक करें' पर क्लिक करें।";
-  document.getElementById("printable-pass").innerHTML = "";
-  document.getElementById("procurement-stepper").innerHTML = "";
+  const cName = document.getElementById("q-centre-name");
+  if (cName) cName.textContent = "कोई सक्रिय बुकिंग नहीं";
+  const sWin = document.getElementById("q-slot-window");
+  if (sWin) sWin.textContent = "—";
+  ["q-current-serving", "q-my-token", "q-farmers-ahead", "q-wait-time"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = "—";
+  });
+  const pPct = document.getElementById("q-progress-pct");
+  if (pPct) pPct.textContent = "—";
+  const pBar = document.getElementById("q-progress-bar");
+  if (pBar) pBar.style.width = "0%";
+  const pExpl = document.getElementById("q-explanation");
+  if (pExpl) pExpl.textContent = "अभी तक कोई स्लॉट बुक नहीं किया गया — ऊपर 'नया स्लॉट बुक करें' पर क्लिक करें।";
+  const pPass = document.getElementById("printable-pass");
+  if (pPass) pPass.innerHTML = "";
+  const pStep = document.getElementById("procurement-stepper");
+  if (pStep) pStep.innerHTML = "";
   
-  document.getElementById("what-next-icon").textContent = "📅";
-  document.getElementById("what-next-badge").textContent = "No Active Slot";
-  document.getElementById("what-next-badge").className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800";
-  document.getElementById("what-next-desc").textContent = "आपकी कोई सक्रिय बुकिंग नहीं है। मंडी में बिना कतार परेशानी के फसल बेचने हेतु स्लॉट बुक करें।";
+  const statusLineText = document.getElementById("status-line-text");
+  if (statusLineText) statusLineText.textContent = "⚪ कोई सक्रिय टोकन नहीं";
+  const statusLineSub = document.getElementById("status-line-sub");
+  if (statusLineSub) statusLineSub.textContent = "स्लॉट बुक करें";
 }
 
-// [STEP 3] "आपका अगला काम" (What should I do now) Dynamic Action State
+// "आपका अगला काम" & Live Status Line
 function renderWhatShouldIDoNow() {
   const q = STATE.queueStatus;
   const b = STATE.myBooking;
   if (!q || !b) return;
 
-  const iconEl = document.getElementById("what-next-icon");
-  const badgeEl = document.getElementById("what-next-badge");
-  const descEl = document.getElementById("what-next-desc");
+  const statusLineDot = document.getElementById("status-line-dot");
+  const statusLineText = document.getElementById("status-line-text");
+  const statusLineSub = document.getElementById("status-line-sub");
 
   const status = b.status || "BOOKED";
   const ahead = q.farmers_ahead;
 
   if (status === "PAYMENT_INITIATED" || (b.payment && b.payment.dbt_status)) {
-    iconEl.textContent = "💰";
-    badgeEl.textContent = "DBT Disbursed";
-    badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-950";
-    descEl.textContent = `खरीद प्रक्रिया पूर्ण! राशि ₹${(b.total_payout_inr || b.total_estimated_value || 0).toLocaleString("en-IN")} PFMS संदर्भ द्वारा आपके खाते में प्रेषित कर दी गई है।`;
+    if (statusLineDot) statusLineDot.className = "w-3 h-3 rounded-full bg-emerald-500";
+    if (statusLineText) statusLineText.textContent = "💰 MSP भुगतान बैंक खाते में PFMS द्वारा प्रेषित";
+    if (statusLineSub) statusLineSub.textContent = "DBT Disbursed";
   } else if (status === "PROCURED") {
-    iconEl.textContent = "✅";
-    badgeEl.textContent = "Procurement Complete";
-    badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-teal-200 text-teal-950";
-    descEl.textContent = "फसल सफलतापूर्वक स्वीकृत और तौल ली गई है। आधिकारिक खरीद पर्ची जारी हो गई है। DBT भुगतान जल्द स्वीकृत होगा।";
+    if (statusLineDot) statusLineDot.className = "w-3 h-3 rounded-full bg-teal-500";
+    if (statusLineText) statusLineText.textContent = "✅ फसल खरीद पूर्ण (Official Mandi Receipt Issued)";
+    if (statusLineSub) statusLineSub.textContent = "Procurement Done";
   } else if (ahead === 0 || status === "ARRIVED" || status === "WEIGHING_COMPLETED" || status === "QUALITY_VERIFIED") {
-    iconEl.textContent = "🚨";
-    badgeEl.textContent = "YOUR TURN ACTIVE";
-    badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse";
-    descEl.textContent = "आपकी बारी अब सक्रिय है! कृपया अपना डिजिटल गेट पास दिखाकर तुरंत धर्मकांटा / वेइंग काउंटर पर उपस्थित हों।";
+    if (statusLineDot) statusLineDot.className = "w-3 h-3 rounded-full bg-rose-500 animate-ping";
+    if (statusLineText) statusLineText.textContent = "🔴 Your turn is now! (आपकी बारी सक्रिय है)";
+    if (statusLineSub) statusLineSub.textContent = "Present Pass at Desk #2";
   } else if (ahead <= 5) {
-    iconEl.textContent = "🚜";
-    badgeEl.textContent = "Queue Approaching";
-    badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950";
-    descEl.textContent = `आपसे आगे केवल ${ahead} किसान हैं! कृपया अपने वाहन के साथ मंडी के मुख्य द्वार / गेट 1 की ओर प्रस्थान करें।`;
+    if (statusLineDot) statusLineDot.className = "w-3 h-3 rounded-full bg-amber-500 animate-pulse";
+    if (statusLineText) statusLineText.textContent = "🟢 Your turn is approaching (आपसे आगे " + ahead + " किसान हैं)";
+    if (statusLineSub) statusLineSub.textContent = "Head towards Gate 1";
   } else {
-    iconEl.textContent = "🏡";
-    badgeEl.textContent = "Wait Comfortably at Home";
-    badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900";
-    descEl.textContent = `आपका स्लॉट पुष्ट है (${b.display_time_window || b.time_window})। आगे ${ahead} किसान हैं। अनुमानित प्रतीक्षा समय लगभग ${q.estimated_wait_time_minutes} मिनट है।`;
+    if (statusLineDot) statusLineDot.className = "w-3 h-3 rounded-full bg-emerald-500 animate-pulse";
+    if (statusLineText) statusLineText.textContent = "🟢 Your turn is approaching (~" + q.estimated_wait_time_minutes + " मिनट प्रतीक्षा)";
+    if (statusLineSub) statusLineSub.textContent = "Wait comfortably at home";
   }
 }
 
-// [STEP 4 & 6] Real-time queue position & Estimated wait-time
+// Real-time queue position & Estimated wait-time
 function renderFarmerQueue() {
   const q = STATE.queueStatus, b = STATE.myBooking;
-  document.getElementById("q-centre-name").textContent = q.centre_name;
-  document.getElementById("q-slot-window").textContent = (b.display_time_window || b.time_window) + " Slot";
-  document.getElementById("q-current-serving").textContent = q.current_serving_token;
-  document.getElementById("q-my-token").textContent = q.your_token;
-  document.getElementById("q-farmers-ahead").textContent = q.farmers_ahead;
+  if (!q || !b) return;
+
+  const centreEl = document.getElementById("q-centre-name");
+  if (centreEl) centreEl.textContent = q.centre_name;
+
+  const slotEl = document.getElementById("q-slot-window");
+  if (slotEl) slotEl.textContent = (b.display_time_window || b.time_window) + " Slot";
+
+  const servEl = document.getElementById("q-current-serving");
+  if (servEl) servEl.textContent = q.current_serving_token;
+
+  const tokEl = document.getElementById("q-my-token");
+  if (tokEl) tokEl.textContent = q.your_token;
+
+  const tokSub = document.getElementById("q-token-sub");
+  if (tokSub) tokSub.textContent = `${b.quantity_quintal || 50} Q (${b.crop_type || 'Wheat'})`;
+
+  const aheadEl = document.getElementById("q-farmers-ahead");
+  if (aheadEl) aheadEl.textContent = q.farmers_ahead;
   
   // Color-coded wait time
   const waitEl = document.getElementById("q-wait-time");
-  waitEl.textContent = q.estimated_wait_time_minutes + " min";
-  if (q.estimated_wait_time_minutes > 50) {
-    waitEl.className = "text-xl font-black text-rose-600 mt-1 block";
-  } else if (q.estimated_wait_time_minutes > 25) {
-    waitEl.className = "text-xl font-black text-amber-600 mt-1 block";
-  } else {
-    waitEl.className = "text-xl font-black text-teal-700 mt-1 block";
+  if (waitEl) {
+    waitEl.textContent = q.estimated_wait_time_minutes + " मिनट";
+    if (q.estimated_wait_time_minutes > 50) {
+      waitEl.className = "text-2xl font-black text-rose-600 mt-1 block";
+    } else if (q.estimated_wait_time_minutes > 25) {
+      waitEl.className = "text-2xl font-black text-amber-600 mt-1 block";
+    } else {
+      waitEl.className = "text-2xl font-black text-teal-800 mt-1 block";
+    }
+  }
+
+  const timerEl = document.getElementById("q-wait-timer");
+  if (timerEl) {
+    const minStr = Math.max(1, q.estimated_wait_time_minutes);
+    timerEl.textContent = `⏳ ~${minStr} min`;
   }
 
   const total = Math.max(q.your_seq - (q.current_serving_seq - q.farmers_ahead) + 1, 1);
   const done = Math.max(total - q.farmers_ahead, 0);
   const pct = Math.min(100, Math.round((done / total) * 100));
-  document.getElementById("q-progress-pct").textContent = pct + "% Reached";
-  document.getElementById("q-progress-bar").style.width = pct + "%";
-  document.getElementById("q-explanation").textContent = "💡 " + q.explanation;
+  
+  const pctEl = document.getElementById("q-progress-pct");
+  if (pctEl) pctEl.textContent = pct + "% Reached";
+  const barEl = document.getElementById("q-progress-bar");
+  if (barEl) barEl.style.width = pct + "%";
+  const explEl = document.getElementById("q-explanation");
+  if (explEl) explEl.textContent = "💡 " + q.explanation;
 }
 
+// Digital Gate Pass Printable Widget (Matching Screenshot Exactly)
 function renderDigitalPass() {
   const b = STATE.myBooking;
+  if (!b) return;
+
   const container = document.getElementById("printable-pass");
+  if (!container) return;
+
+  const estVal = (b.total_estimated_value || (b.quantity_quintal || 50) * 2425).toLocaleString("en-IN");
+
   container.innerHTML = `
-    <div class="token-card rounded-3xl p-6 space-y-4 shadow-sm">
-      <div class="flex justify-between items-start">
-        <div>
-          <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wide">Official Digital Gate Pass</p>
-          <h4 class="text-2xl font-black text-slate-900">${b.token_number}</h4>
+    <div class="official-pass-card p-5 space-y-4 shadow-md bg-white">
+      <div class="flex justify-between items-center text-[10px] font-bold text-slate-600 border-b border-dashed border-slate-200 pb-2.5">
+        <div class="flex items-center gap-1.5">
+          <span class="text-emerald-700">🇮🇳</span>
+          <span class="font-semibold text-slate-700">भारतीय खाद्य निगम / राज्य कृषि विपणन बोर्ड डिजिटल गेट पास</span>
         </div>
-        <div id="pass-qr" class="w-16 h-16 bg-white p-1 rounded-xl shadow-inner"></div>
+        <span class="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-black text-[9px] border border-amber-300">★ OFFICIAL PASS ★</span>
       </div>
-      <div class="grid grid-cols-2 gap-3 text-xs">
-        <div><span class="text-slate-400 block font-bold">Farmer</span><span class="font-bold text-slate-800">${b.farmer_name}</span></div>
-        <div><span class="text-slate-400 block font-bold">Centre</span><span class="font-bold text-slate-800">${b.centre_name.split(" (")[0]}</span></div>
-        <div><span class="text-slate-400 block font-bold">Crop</span><span class="font-bold text-slate-800">${b.crop_type} (${b.quantity_quintal} Q)</span></div>
-        <div><span class="text-slate-400 block font-bold">Slot</span><span class="font-bold text-slate-800">${b.display_time_window || b.time_window}</span></div>
-        <div><span class="text-slate-400 block font-bold">Vehicle</span><span class="font-bold text-slate-800">${b.vehicle_number || 'HR-05-AB-7821'}</span></div>
-        <div><span class="text-slate-400 block font-bold">Est. Payout</span><span class="font-bold text-slate-800">₹${(b.total_estimated_value || 0).toLocaleString("en-IN")}</span></div>
+
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-800 text-white flex items-center justify-center text-2xl shadow">
+            🌾
+          </div>
+          <div>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">OFFICIAL MANDI PASS</span>
+            <span class="font-mono text-xs font-bold text-slate-500 block">BK-KNL-2026-0881</span>
+            <h4 class="text-base font-extrabold text-slate-900">${b.centre_name || 'Centre A - Grain Market Karnal'}</h4>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">GATE PASS TOKEN</span>
+          <span id="pass-token-badge" class="text-3xl font-black text-emerald-800 block">${b.token_number || '#A-52'}</span>
+        </div>
       </div>
-      <div class="flex gap-2 pt-1 no-print">
-        <button onclick="window.print()" class="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow transition">🖨️ Print Pass</button>
-        <button onclick="sharePassWhatsApp()" class="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition">📱 Share</button>
+
+      <div class="grid grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-100">
+        <div>
+          <span class="text-slate-400 block font-bold text-[10px]">Farmer Name / किसान:</span>
+          <span class="font-bold text-slate-900">${b.farmer_name || 'Ramesh Kumar (रमेश कुमार)'}</span>
+        </div>
+        <div>
+          <span class="text-slate-400 block font-bold text-[10px]">Date & Time Slot / समय:</span>
+          <span class="font-bold text-slate-900">2026-09-01 ${b.display_time_window || b.time_window || '10:00 - 11:00 AM'}</span>
+        </div>
+        <div>
+          <span class="text-slate-400 block font-bold text-[10px]">Crop & Quantity / फसल:</span>
+          <span class="font-bold text-slate-900">${b.crop_type || 'Wheat (गेहूँ)'} ${b.quantity_quintal || 50} Quintal (${b.vehicle_number ? 'HR-05-AB-7821' : 'Tractor Trolley'})</span>
+        </div>
+        <div>
+          <span class="text-slate-400 block font-bold text-[10px]">MSP Sanction Rate:</span>
+          <span class="font-bold text-emerald-800">₹2425 / Q <span class="text-slate-500 font-normal">(Est: ₹${estVal})</span></span>
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2 border-t border-dashed border-slate-200 no-print">
+        <button onclick="window.print()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-print"></i> प्रिंट पास (Print)
+        </button>
+        <button onclick="sharePassWhatsApp()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+          <i class="fa-brands fa-whatsapp"></i> WhatsApp शेयर
+        </button>
       </div>
     </div>`;
-
-  const qrEl = document.getElementById("pass-qr");
-  if (qrEl && window.QRCode) {
-    qrEl.innerHTML = "";
-    new QRCode(qrEl, { text: b.qr_payload || b.token_number, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.M });
-  }
 }
 
 // [STEP 9] 7-Stage Interactive Procurement Journey
@@ -1159,7 +1357,7 @@ function renderSmsLogs() {
 // INITIALIZATION
 // -------------------------------------------------------------
 window.addEventListener("DOMContentLoaded", () => {
-  setAuthTab("login");
+  setRoleAuthTab("farmer");
   if (!tryRestoreSession()) {
     document.getElementById("view-auth").classList.remove("hidden");
   }
