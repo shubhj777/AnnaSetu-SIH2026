@@ -1,7 +1,6 @@
 /**
  * KisanQueue — Standalone Mock Data & In-Browser Fallback Engine
- * Provides realistic mandi data and simulated responses if the FastAPI backend
- * is unavailable or running on static hosting (e.g. GitHub Pages / Vercel / Netlify).
+ * Provides realistic mandi data, route guidance, complaints, and simulated responses.
  */
 
 const MockData = (() => {
@@ -23,6 +22,8 @@ const MockData = (() => {
       current_token: 37,
       serving_token_number: "#A-37",
       address: "GT Road, Near Railway Overbridge, Karnal, Haryana 132001",
+      gate_entry: "Gate 1 (North Weighbridge Entrance)",
+      route_tips: "Take NH44 towards GT Road Flyover, turn right at Anaj Mandi Chowk. Dedicated tractor lane on Gate 1.",
       contact_phone: "+91 184 2259101",
       crops_accepted: ["Wheat (गेहूँ)", "Paddy / Rice (धान)", "Mustard / Sarson (सरसों)"]
     },
@@ -43,6 +44,8 @@ const MockData = (() => {
       current_token: 18,
       serving_token_number: "#B-18",
       address: "Station Road, Nilokheri, Karnal, Haryana 132117",
+      gate_entry: "Gate 2 (Sub-Mandi Main Weighbridge)",
+      route_tips: "Via State Highway 8. Smooth traffic flow, ample parking near weighbridge.",
       contact_phone: "+91 184 2468200",
       crops_accepted: ["Wheat (गेहूँ)", "Paddy / Rice (धान)", "Gram / Chana (चना)"]
     },
@@ -63,6 +66,8 @@ const MockData = (() => {
       current_token: 12,
       serving_token_number: "#C-12",
       address: "Indri-Ladwa Highway, Indri, Karnal, Haryana 132041",
+      gate_entry: "Main Procurement Yard Gate",
+      route_tips: "Via Karnal-Indri Road. Low traffic, fastest quality assay clearance.",
       contact_phone: "+91 184 2381200",
       crops_accepted: ["Wheat (गेहूँ)", "Mustard / Sarson (सरसों)", "Maize (मक्का)"]
     },
@@ -83,6 +88,8 @@ const MockData = (() => {
       current_token: 25,
       serving_token_number: "#D-25",
       address: "National Highway 44, Gharaunda, Haryana 132114",
+      gate_entry: "Gate 1 & Gate 3",
+      route_tips: "Direct access from NH44 Service Lane south of Karnal.",
       contact_phone: "+91 184 2511400",
       crops_accepted: ["Wheat (गेहूँ)", "Paddy / Rice (धान)", "Mustard / Sarson (सरसों)"]
     }
@@ -146,6 +153,7 @@ const MockData = (() => {
       msp_rate_per_quintal: 2425.0,
       total_estimated_value: 121250.0,
       vehicle_type: "Tractor Trolley",
+      vehicle_number: "HR-05-AB-7821",
       status: "BOOKED",
       created_at: new Date().toLocaleString(),
       qr_payload: "KISANQUEUE|TOKEN:#A-52|FARMER:Ramesh Kumar|CENTRE:Centre A|CROP:Wheat|QTY:50Q",
@@ -167,6 +175,7 @@ const MockData = (() => {
       title: "🌾 Slot Confirmed / स्लॉट पुष्टिकरण",
       message_text: "किसान रमेश कुमार, आपका टोकन #A-52 दिनांक आज 10:00-11:00 AM केंद्र A अनाज मंडी करनाल के लिए बुक हो गया है।",
       timestamp: "08:15 AM",
+      is_read: false,
       sent_via: "KisanSMS-GovPush"
     },
     {
@@ -178,6 +187,7 @@ const MockData = (() => {
       title: "🔔 Queue Status Update",
       message_text: "Centre A currently serving Token #A-37. You have 15 farmers ahead. Estimated wait time: 47 mins.",
       timestamp: "09:45 AM",
+      is_read: false,
       sent_via: "KisanSMS-GovPush"
     }
   ];
@@ -207,6 +217,16 @@ const MockData = (() => {
       const cid = payload.centre_id || "centre-a";
       const c = centres.find(x => x.id === cid) || centres[0];
       const prefix = cid.split("-").pop().toUpperCase();
+      const mobile = payload.farmer?.mobile || "9812345678";
+      const b_date = payload.date || new Date().toISOString().slice(0, 10);
+
+      // Prevent duplicate booking for same farmer / date
+      for (const b of Object.values(bookings)) {
+        if (b.farmer_mobile === mobile && b.date === b_date && b.status !== "CANCELLED" && b.status !== "PROCURED") {
+          return { status: "success", message: "Existing active booking loaded", data: b };
+        }
+      }
+
       const seq = Object.keys(bookings).length + 1 + (c.current_token || 1);
       const tokenNo = `#${prefix}-${seq}`;
       const qty = parseFloat(payload.crop?.estimated_quantity_quintal) || 50;
@@ -219,17 +239,18 @@ const MockData = (() => {
         token_sequence: seq,
         farmer_id: payload.farmer?.farmer_id || `FID-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
         farmer_name: payload.farmer?.name || "Farmer",
-        farmer_mobile: payload.farmer?.mobile || "9812345678",
+        farmer_mobile: mobile,
+        aadhaar_masked: "XXXX-XXXX-4819",
         village: payload.farmer?.village || "Karnal Rural",
         district: "Karnal",
         state: "Haryana",
         kcc_number: "KCC-991204",
         bank_name: "State Bank of India",
-        account_masked: "XXXXXX1234",
+        account_masked: "XXXXXX9012",
         ifsc: "SBIN0001234",
         centre_id: cid,
         centre_name: c.name,
-        date: payload.date || new Date().toISOString().slice(0, 10),
+        date: b_date,
         time_window: payload.time_window || "10:00 - 11:00",
         display_time_window: payload.time_window || "10:00 - 11:00 AM",
         crop_type: crop,
@@ -238,6 +259,7 @@ const MockData = (() => {
         msp_rate_per_quintal: msp,
         total_estimated_value: qty * msp,
         vehicle_type: payload.vehicle_type || "Tractor Trolley",
+        vehicle_number: `HR-05-AB-${Math.floor(1000 + Math.random() * 9000)}`,
         status: "BOOKED",
         created_at: new Date().toLocaleString(),
         qr_payload: `KISANQUEUE|TOKEN:${tokenNo}|FARMER:${payload.farmer?.name}|CENTRE:${c.name}|QTY:${qty}Q`,
@@ -249,7 +271,6 @@ const MockData = (() => {
       };
       bookings[tokenNo] = newBooking;
 
-      // Update slot availability
       const slotList = slots[cid] || [];
       const targetSlot = slotList.find(s => s.time_window.startsWith(payload.time_window?.slice(0, 5)) || s.display_time_window?.startsWith(payload.time_window?.slice(0, 5)));
       if (targetSlot) {
@@ -266,10 +287,11 @@ const MockData = (() => {
         title: "🌾 Booking Confirmed / टोकन पुष्टिकरण",
         message_text: `KisanQueue: आपका टोकन ${tokenNo} बुक हो गया है (${c.name})।`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        is_read: false,
         sent_via: "KisanSMS-GovPush"
       });
 
-      return { status: "success", message: "Slot booked successfully (offline demo mode)", data: newBooking };
+      return { status: "success", message: "Slot booked successfully", data: newBooking };
     },
     recoverSlot: async (tokenNumber, payload) => {
       const key = tokenNumber.toUpperCase().startsWith("#") ? tokenNumber.toUpperCase() : `#${tokenNumber.toUpperCase()}`;
@@ -293,6 +315,7 @@ const MockData = (() => {
         title: "🔄 Missed Slot Recovered",
         message_text: `KisanQueue: आपका टोकन ${key} नए समय ${b.display_time_window} पर री-शेड्यूल किया गया।`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        is_read: false,
         sent_via: "KisanSMS-GovPush"
       });
 
@@ -318,7 +341,7 @@ const MockData = (() => {
         farmers_ahead: ahead,
         estimated_wait_time_minutes: wait,
         queue_health: wait > 50 ? "High Congestion (🔴)" : (wait > 25 ? "Normal (🟡)" : "Smooth (🟢)"),
-        explanation: `Based on ${ahead} farmers ahead across ${c.active_counters} weighing counters. (Demo Model)`,
+        explanation: `Based on ${ahead} farmers ahead across ${c.active_counters} active weighing desks.`,
         last_updated: new Date().toLocaleTimeString()
       };
     },
@@ -402,7 +425,9 @@ const MockData = (() => {
         token_number: payload.token_number || "",
         category: payload.category || "Queue Delay",
         description: payload.description || "",
-        status: "REGISTERED",
+        status: "SUBMITTED",
+        assigned_to: "Mandi Secretary Officer",
+        resolution_eta: "Within 2 Hours",
         timestamp: new Date().toLocaleString()
       };
       complaints.unshift(cmp);

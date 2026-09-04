@@ -221,7 +221,8 @@ def perform_operator_action(payload: Dict[str, Any]):
     elif action == "complete_procurement":
         booking["status"] = "PROCURED"
         booking["procured_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-        net_qty = booking.get("weighbridge", {}).get("net_weight_quintal", booking["quantity_quintal"])
+        wb = booking.get("weighbridge") or {}
+        net_qty = wb.get("net_weight_quintal", booking.get("quantity_quintal", 50.0))
         msp_rate = booking.get("msp_rate_per_quintal", 2425.0)
         total_payout = round(net_qty * msp_rate, 2)
         booking["total_payout_inr"] = total_payout
@@ -242,7 +243,8 @@ def perform_operator_action(payload: Dict[str, Any]):
     elif action == "initiate_payment":
         booking["status"] = "PAYMENT_INITIATED"
         tx_id = f"DBT-PFMS-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        net_qty = booking.get("weighbridge", {}).get("net_weight_quintal", booking["quantity_quintal"])
+        wb = booking.get("weighbridge") or {}
+        net_qty = wb.get("net_weight_quintal", booking.get("quantity_quintal", 50.0))
         msp_rate = booking.get("msp_rate_per_quintal", 2425.0)
         total_payout = round(net_qty * msp_rate, 2)
         

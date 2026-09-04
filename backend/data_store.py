@@ -15,7 +15,6 @@ def normalize_time_window(tw: str) -> str:
         return "10:00 - 11:00"
     clean = re.sub(r'\(.*?\)', '', tw).strip()
     
-    # Check for 12-hour format like "01:00 - 02:00 PM" or "10:00 - 11:00 AM"
     match_12 = re.search(r'(\d{1,2}):(\d{2})\s*(?:AM|PM)?\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)', clean, re.IGNORECASE)
     if match_12:
         h1, m1, h2, m2, meridian = match_12.groups()
@@ -32,7 +31,6 @@ def normalize_time_window(tw: str) -> str:
                 h2_i = 0
         return f"{h1_i:02d}:{m1} - {h2_i:02d}:{m2}"
     
-    # Check for direct 24-hour format like "10:00 - 11:00" or "13:00 - 14:00"
     match_24 = re.search(r'(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})', clean)
     if match_24:
         h1, m1, h2, m2 = match_24.groups()
@@ -74,7 +72,7 @@ class DataStore:
     def _seed_initial_data(self):
         today_str = date.today().isoformat()
         
-        # 1. Seed Procurement Centres
+        # 1. Seed Procurement Centres with navigation instructions & route guidance
         centres_data = [
             {
                 "id": "centre-a",
@@ -93,6 +91,8 @@ class DataStore:
                 "current_token": 37,
                 "serving_token_number": "#A-37",
                 "address": "GT Road, Near Railway Overbridge, Karnal, Haryana 132001",
+                "gate_entry": "Gate 1 (North Weighbridge Entrance)",
+                "route_tips": "Take NH44 towards GT Road Flyover, turn right at Anaj Mandi Chowk. Dedicated tractor lane is active on Gate 1.",
                 "contact_phone": "+91 184 2259101",
                 "crops_accepted": ["Wheat (गेहूँ)", "Paddy / Rice (धान)", "Mustard / Sarson (सरसों)"]
             },
@@ -113,6 +113,8 @@ class DataStore:
                 "current_token": 18,
                 "serving_token_number": "#B-18",
                 "address": "Station Road, Nilokheri, Karnal, Haryana 132117",
+                "gate_entry": "Gate 2 (Sub-Mandi Main Weighbridge)",
+                "route_tips": "Via State Highway 8. Smooth traffic flow, ample parking near weighbridge.",
                 "contact_phone": "+91 184 2468200",
                 "crops_accepted": ["Wheat (गेहूँ)", "Paddy / Rice (धान)", "Gram / Chana (चना)"]
             },
@@ -133,6 +135,8 @@ class DataStore:
                 "current_token": 12,
                 "serving_token_number": "#C-12",
                 "address": "Indri-Ladwa Highway, Indri, Karnal, Haryana 132041",
+                "gate_entry": "Main Procurement Yard Gate",
+                "route_tips": "Via Karnal-Indri Road. Low traffic, fastest quality assay clearance.",
                 "contact_phone": "+91 184 2381200",
                 "crops_accepted": ["Wheat (गेहूँ)", "Mustard / Sarson (सरसों)", "Maize (मक्का)"]
             },
@@ -153,6 +157,8 @@ class DataStore:
                 "current_token": 25,
                 "serving_token_number": "#D-25",
                 "address": "National Highway 44, Gharaunda, Haryana 132114",
+                "gate_entry": "Gate 1 & Gate 3",
+                "route_tips": "Direct access from NH44 Service Lane south of Karnal.",
                 "contact_phone": "+91 184 2511400",
                 "crops_accepted": ["Wheat (गेहूँ)", "Paddy / Rice (धान)", "Mustard / Sarson (सरसों)"]
             }
@@ -220,6 +226,7 @@ class DataStore:
             "msp_rate_per_quintal": 2425.0,
             "total_estimated_value": 50.0 * 2425.0,
             "vehicle_type": "Tractor Trolley",
+            "vehicle_number": "HR-05-AB-7821",
             "status": "BOOKED",
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "qr_payload": "KISANQUEUE|TOKEN:#A-52|FARMER:Ramesh Kumar|CENTRE:Centre A|CROP:Wheat|QTY:50Q",
@@ -241,6 +248,7 @@ class DataStore:
             "title": "🌾 Slot Confirmed / स्लॉट पुष्टिकरण",
             "message_text": "किसान रमेश कुमार, आपका टोकन #A-52 दिनांक आज 10:00-11:00 AM केंद्र A अनाज मंडी करनाल के लिए बुक हो गया है। फसल: गेहूँ (50 क्विंटल)।",
             "timestamp": "08:15 AM",
+            "is_read": False,
             "sent_via": "KisanSMS-GovPush"
         })
         self.sms_logs.append({
@@ -252,11 +260,11 @@ class DataStore:
             "title": "🔔 Queue Status Update",
             "message_text": "Centre A currently serving Token #A-37. You have 15 farmers ahead. Estimated wait time: 47 mins. You may wait at home or head to centre.",
             "timestamp": "09:45 AM",
+            "is_read": False,
             "sent_via": "KisanSMS-GovPush"
         })
 
     def get_centres(self) -> List[Dict[str, Any]]:
-        # Refresh current load percentage dynamically from slot data
         for cid, centre in self.centres.items():
             slots = self.slots.get(cid, [])
             if slots:
@@ -292,6 +300,15 @@ class DataStore:
         cid = req_dict["centre_id"]
         centre = self.centres.get(cid, self.centres["centre-a"])
         
+        farmer_id = req_dict.get("farmer", {}).get("farmer_id")
+        farmer_mobile = req_dict.get("farmer", {}).get("mobile")
+        b_date = req_dict.get("date", date.today().isoformat())
+
+        # Prevent duplicate active bookings for the same farmer on the same date
+        for existing in self.bookings.values():
+            if (existing.get("farmer_id") == farmer_id or existing.get("farmer_mobile") == farmer_mobile) and existing.get("date") == b_date and existing.get("status") not in ["CANCELLED", "PROCURED", "PAYMENT_CREDITED"]:
+                return existing  # Return existing confirmed slot seamlessly
+
         prefix = cid.split("-")[-1].upper()
         existing_count = len([b for b in self.bookings.values() if b["centre_id"] == cid])
         seq_num = existing_count + 1 + centre.get("current_token", 1)
@@ -309,9 +326,9 @@ class DataStore:
             "booking_id": f"BK-{prefix}-{uuid.uuid4().hex[:6].upper()}",
             "token_number": token_no,
             "token_sequence": seq_num,
-            "farmer_id": req_dict.get("farmer", {}).get("farmer_id") or f"FID-{uuid.uuid4().hex[:5].upper()}",
+            "farmer_id": farmer_id or f"FID-{uuid.uuid4().hex[:5].upper()}",
             "farmer_name": req_dict.get("farmer", {}).get("name", "Farmer"),
-            "farmer_mobile": req_dict.get("farmer", {}).get("mobile", "9800000000"),
+            "farmer_mobile": farmer_mobile or "9800000000",
             "aadhaar_masked": req_dict.get("farmer", {}).get("aadhaar_masked", "XXXX-XXXX-1234"),
             "village": req_dict.get("farmer", {}).get("village", "Karnal Rural"),
             "district": req_dict.get("farmer", {}).get("district", "Karnal"),
@@ -322,7 +339,7 @@ class DataStore:
             "ifsc": req_dict.get("farmer", {}).get("ifsc", "SBIN0001234"),
             "centre_id": cid,
             "centre_name": centre["name"],
-            "date": req_dict.get("date", date.today().isoformat()),
+            "date": b_date,
             "time_window": canonical_window,
             "display_time_window": display_window,
             "crop_type": crop_type,
@@ -331,6 +348,7 @@ class DataStore:
             "msp_rate_per_quintal": msp,
             "total_estimated_value": round(qty * msp, 2),
             "vehicle_type": req_dict.get("vehicle_type", "Tractor Trolley"),
+            "vehicle_number": req_dict.get("vehicle_number", f"HR-05-AB-{uuid.uuid4().hex[:4].upper()}"),
             "status": "BOOKED",
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "qr_payload": f"KISANQUEUE|TOKEN:{token_no}|FARMER:{req_dict.get('farmer', {}).get('name')}|CENTRE:{centre['name']}|QTY:{qty}Q",
@@ -343,7 +361,6 @@ class DataStore:
 
         self.bookings[token_no] = booking
 
-        # Accurately decrement slot availability
         for slot in self.slots.get(cid, []):
             if slot["time_window"] == canonical_window:
                 slot["booked_count"] += 1
@@ -351,7 +368,6 @@ class DataStore:
                 slot["congestion_level"] = "full" if not slot["is_available"] else ("high" if slot["booked_count"] >= slot["max_capacity"] * 0.8 else ("medium" if slot["booked_count"] >= slot["max_capacity"] * 0.5 else "low"))
                 break
 
-        # Record SMS Log
         self.sms_logs.append({
             "id": f"SMS-{uuid.uuid4().hex[:4].upper()}",
             "recipient_mobile": booking["farmer_mobile"],
@@ -361,6 +377,7 @@ class DataStore:
             "title": "🌾 Booking Confirmed / टोकन पुष्टिकरण",
             "message_text": f"KisanQueue: आपका टोकन {token_no} सफलतापूर्वक बुक हो गया है ({centre['name']}, समय: {display_window})। कृपया समय पर पहुँचें।",
             "timestamp": datetime.now().strftime("%I:%M %p"),
+            "is_read": False,
             "sent_via": "KisanSMS-GovPush"
         })
 
@@ -377,20 +394,17 @@ class DataStore:
         cid = booking["centre_id"]
         old_window = booking.get("time_window")
         
-        # Determine target window dynamically
         if requested_window and requested_window.strip():
             new_window = normalize_time_window(requested_window)
         else:
             new_window = self.find_next_best_slot(cid)
 
-        # Free old slot
         for slot in self.slots.get(cid, []):
             if slot["time_window"] == old_window and slot["booked_count"] > 0:
                 slot["booked_count"] -= 1
                 slot["is_available"] = True
                 break
 
-        # Occupy new slot
         for slot in self.slots.get(cid, []):
             if slot["time_window"] == new_window:
                 slot["booked_count"] += 1
@@ -412,6 +426,7 @@ class DataStore:
             "title": "🔄 Missed Slot Recovered",
             "message_text": f"KisanQueue: आपका टोकन {norm} सफलतापूर्वक नए समय {display_win} पर री-शेड्यूल कर दिया गया है।",
             "timestamp": datetime.now().strftime("%I:%M %p"),
+            "is_read": False,
             "sent_via": "KisanSMS-GovPush"
         })
 
@@ -430,7 +445,6 @@ class DataStore:
         if current_token_no in self.bookings:
             self.bookings[current_token_no]["status"] = "ARRIVED"
 
-        # Check all bookings for notifications
         for token_no, b in self.bookings.items():
             if b["centre_id"] == centre_id:
                 ahead = b["token_sequence"] - centre["current_token"]
@@ -444,6 +458,7 @@ class DataStore:
                         "title": "🔔 Only 5 Farmers Ahead!",
                         "message_text": f"अलर्ट: केवल 5 किसान आपकी बारी से आगे हैं। कृपया केंद्र {centre['name']} के मुख्य गेट पर पहुँचें।",
                         "timestamp": datetime.now().strftime("%I:%M %p"),
+                        "is_read": False,
                         "sent_via": "KisanSMS-GovPush"
                     })
                 elif ahead == 0:
@@ -456,6 +471,7 @@ class DataStore:
                         "title": "🚨 Please reach Weighbridge!",
                         "message_text": f"सूचना: आपका टोकन {token_no} अब सक्रिय है! कृपया धर्मकांटा / वेइंग काउंटर पर उपस्थित हों।",
                         "timestamp": datetime.now().strftime("%I:%M %p"),
+                        "is_read": False,
                         "sent_via": "KisanSMS-GovPush"
                     })
 
@@ -474,7 +490,9 @@ class DataStore:
             "token_number": (data.get("token_number") or "").upper(),
             "category": data.get("category", "Queue Delay"),
             "description": data.get("description", ""),
-            "status": "REGISTERED",
+            "status": "SUBMITTED",
+            "assigned_to": "Mandi Secretary Officer",
+            "resolution_eta": "Within 2 Hours",
             "timestamp": datetime.now().strftime("%Y-%m-%d %I:%M %p")
         }
         self.complaints.append(record)
