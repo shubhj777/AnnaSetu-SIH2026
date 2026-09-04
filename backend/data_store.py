@@ -201,6 +201,10 @@ class DataStore:
             cursor.execute("SELECT * FROM payments WHERE booking_id = ?", (booking["id"],))
             booking["payment"] = row_to_dict(cursor.fetchone())
 
+            # Attach Gate Entry record
+            cursor.execute("SELECT * FROM gate_entries WHERE booking_id = ? ORDER BY entry_time DESC LIMIT 1", (booking["id"],))
+            booking["gate_entry"] = row_to_dict(cursor.fetchone())
+
             return booking
 
     def list_bookings(
@@ -588,6 +592,285 @@ class DataStore:
             ))
             cursor.execute("SELECT * FROM complaints WHERE id = ?", (cid,))
             return row_to_dict(cursor.fetchone())
+
+    def register_gate_entry(
+        self,
+        booking_id_or_token: str,
+        gate_number: str = "Gate-1",
+        vehicle_number: Optional[str] = None,
+        driver_name: Optional[str] = None,
+        operator_id: Optional[str] = "usr-operator",
+        notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Registers physical arrival at Mandi Gate, generates official Gate Entry ID (GE-{centre}-{date}-{seq}),
+        transitions booking status from BOOKED to ARRIVED, and dispatches Gate Entry SMS.
+        """
+        booking = self.get_booking(booking_id_or_token)
+        if not booking:
+            return {"success": False, "message": f"Booking not found for '{booking_id_or_token}'"}
+
+        cid = booking["centre_id"]
+        token_no = booking["token_number"]
+        now = datetime.now()
+        today_str = now.strftime("%Y%m%d")
+        now_iso = now.strftime("%Y-%m-%d %H:%M:%S")
+        prefix = cid.split("-")[-1].upper()
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Check if gate entry already exists for this booking
+            cursor.execute("SELECT * FROM gate_entries WHERE booking_id = ?", (booking["id"],))
+            existing_ge = row_to_dict(cursor.fetchone())
+            if existing_ge:
+                return {
+                    "success": True,
+                    "message": f"Gate entry already registered: {existing_ge['gate_entry_number']}",
+                    "gate_entry_number": existing_ge["gate_entry_number"],
+                    "gate_entry": existing_ge,
+                    "booking": booking
+                }
+
+            # Sequence number for today
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM gate_entries
+                WHERE centre_id = ? AND entry_time LIKE ?
+            """, (cid, f"{now.strftime('%Y-%m-%d')}%"))
+            seq_num = cursor.fetchone()["count"] + 1
+
+            ge_number = f"GE-{prefix}-{today_str}-{seq_num:03d}"
+            ge_id = f"ge-{uuid.uuid4().hex[:8]}"
+            v_num = (vehicle_number or booking.get("vehicle_number") or f"HR-05-{uuid.uuid4().hex[:4].upper()}").strip().upper()
+            d_name = (driver_name or booking.get("farmer_name", "Farmer")).strip()
+
+            cursor.execute("""
+                INSERT INTO gate_entries (
+                    id, gate_entry_number, booking_id, token_number, centre_id,
+                    gate_number, vehicle_number, driver_name, entry_time,
+                    operator_id, status, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_QUEUE', ?)
+            """, (
+                ge_id, ge_number, booking["id"], token_no, cid,
+                gate_number, v_num, d_name, now_iso,
+                operator_id or "usr-operator", notes or "Gate physical arrival verified"
+            ))
+
+            # Update booking status to ARRIVED with gate entry metadata
+            cursor.execute("""
+                UPDATE bookings
+                SET status = 'ARRIVED',
+                    gate_entry_id = ?,
+                    gate_number = ?,
+                    arrived_at = COALESCE(arrived_at, ?),
+                    vehicle_number = ?,
+                    status_note = 'Arrived at Mandi Gate. Gate pass issued.'
+                WHERE id = ?
+            """, (ge_number, gate_number, now.strftime("%I:%M %p"), v_num, booking["id"]))
+
+            # Audit log
+            cursor.execute("""
+                INSERT INTO audit_logs (id, entity_type, entity_id, action, performed_by, old_status, new_status, notes, created_at)
+                VALUES (?, 'GATE_ENTRY', ?, 'REGISTER', ?, 'BOOKED', 'ARRIVED', ?, ?)
+            """, (
+                f"AUD-{uuid.uuid4().hex[:6].upper()}", ge_id,
+                operator_id or "Gate Operator",
+                f"Issued Gate Pass {ge_number} at {gate_number} for {token_no}", now_iso
+            ))
+
+            cursor.execute("SELECT * FROM gate_entries WHERE id = ?", (ge_id,))
+            ge_record = row_to_dict(cursor.fetchone())
+
+        updated_booking = self.get_booking(token_no)
+
+        # Dispatch Gate Entry Confirmation SMS
+        NotificationService.send_sms(
+            event_type="GATE_ARRIVAL",
+            idempotency_key=f"GATE_ARRIVAL_{booking['id']}",
+            recipient_mobile=booking["farmer_mobile"],
+            recipient_name=booking["farmer_name"],
+            token_number=token_no,
+            title="🚚 Gate Entry Registered / गेट प्रवेश दर्ज",
+            message_text=f"[DEMO SMS] KisanQueue: गेट प्रवेश दर्ज! टोकन {token_no}, गेट पास {ge_number}, {gate_number}। कृपया वेइंग लेन में प्रतीक्षा करें।",
+            booking_id=booking["id"]
+        )
+
+        return {
+            "success": True,
+            "message": f"Gate entry {ge_number} registered successfully",
+            "gate_entry_number": ge_number,
+            "gate_entry": ge_record,
+            "booking": updated_booking
+        }
+
+    def get_crop_centres_availability(
+        self,
+        crop_type: Optional[str] = None,
+        target_date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Queries all procurement centres accepting the requested crop on the given date,
+        calculates live capacity metrics (total, booked, remaining, wait time, load %),
+        and provides an algorithmic Best Available Option recommendation.
+        """
+        t_date = target_date or date.today().isoformat()
+        centres = self.get_centres()
+        results = []
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            for c in centres:
+                crops_accepted = c.get("crops_accepted", [])
+                accepts = True
+                if crop_type and crop_type.strip():
+                    ct_norm = crop_type.lower().strip()
+                    accepts = any(ct_norm in cp.lower() or cp.lower() in ct_norm for cp in crops_accepted)
+
+                slots = self.get_slots(c["id"], t_date)
+                total_slots = sum(s["max_capacity"] for s in slots) if slots else 120
+                booked_slots = sum(s["booked_count"] for s in slots) if slots else 0
+                remaining_slots = max(0, total_slots - booked_slots)
+                load_pct = min(100, round((booked_slots / max(1, total_slots)) * 100))
+
+                cursor.execute("""
+                    SELECT COUNT(*) as qcnt FROM bookings
+                    WHERE centre_id = ? AND date = ? AND status NOT IN ('CANCELLED', 'REJECTED')
+                """, (c["id"], t_date))
+                queue_len = cursor.fetchone()["qcnt"]
+
+                active_counters = c.get("active_counters", 3)
+                avg_proc = c.get("avg_processing_time_min", 12)
+                est_wait = max(8, round((queue_len * avg_proc) / max(1, active_counters)))
+
+                st = "red" if load_pct >= 80 else ("yellow" if load_pct >= 50 else "green")
+
+                results.append({
+                    "centre_id": c["id"],
+                    "centre_name": c["name"],
+                    "code": c["code"],
+                    "district": c["district"],
+                    "address": c["address"],
+                    "lat": c["lat"],
+                    "lng": c["lng"],
+                    "distance_km": c.get("distance_km", 0.0),
+                    "crops_accepted": crops_accepted,
+                    "accepts_selected_crop": accepts,
+                    "total_capacity_slots": total_slots,
+                    "booked_slots": booked_slots,
+                    "remaining_slots": remaining_slots,
+                    "load_percentage": load_pct,
+                    "status": st,
+                    "queue_length": queue_len,
+                    "active_counters": active_counters,
+                    "estimated_wait_time_minutes": est_wait,
+                    "gate_entry": c.get("gate_entry", "Main Gate 1"),
+                    "route_tips": c.get("route_tips", ""),
+                    "contact_phone": c.get("contact_phone", "0184-2250100")
+                })
+
+        # Calculate Best Recommended Centre
+        eligible = [r for r in results if r["accepts_selected_crop"] and r["remaining_slots"] > 0]
+        if not eligible:
+            eligible = [r for r in results if r["accepts_selected_crop"]]
+        if not eligible:
+            eligible = results
+
+        # Rank by lowest load %, then shortest wait time
+        best = min(eligible, key=lambda x: (x["load_percentage"], x["estimated_wait_time_minutes"]))
+        recommendation = {
+            "centre_id": best["centre_id"],
+            "centre_name": best["centre_name"],
+            "load_percentage": best["load_percentage"],
+            "estimated_wait_time_minutes": best["estimated_wait_time_minutes"],
+            "remaining_slots": best["remaining_slots"],
+            "reason": f"न्यूनतम कतार भार ({best['load_percentage']}%) एवं मात्र {best['estimated_wait_time_minutes']} मिनट प्रतीक्षा समय — सबसे त्वरित खरीद!"
+        }
+
+        return {
+            "status": "success",
+            "date": t_date,
+            "crop_type": crop_type or "All Crops",
+            "total_centres": len(results),
+            "centres": results,
+            "best_option": recommendation
+        }
+
+    def get_daily_centre_schedule(self, target_date: Optional[str] = None) -> Dict[str, Any]:
+        """Returns crop schedules, operating hours, and counter allocation per Mandi centre."""
+        t_date = target_date or date.today().isoformat()
+        avail = self.get_crop_centres_availability(target_date=t_date)
+        centres = avail.get("centres", [])
+
+        schedules = []
+        for c in centres:
+            schedules.append({
+                "centre_id": c["centre_id"],
+                "centre_name": c["centre_name"],
+                "operating_hours": "08:00 AM - 05:00 PM",
+                "lunch_break": "01:00 PM - 02:00 PM",
+                "crops_scheduled": c["crops_accepted"],
+                "active_counters": c["active_counters"],
+                "daily_capacity_slots": c["total_capacity_slots"],
+                "booked_slots": c["booked_slots"],
+                "open_slots": c["remaining_slots"],
+                "load_percentage": c["load_percentage"],
+                "status": c["status"],
+                "gate_entry": c["gate_entry"],
+                "route_tips": c["route_tips"]
+            })
+
+        return {
+            "status": "success",
+            "date": t_date,
+            "total_centres": len(schedules),
+            "schedules": schedules
+        }
+
+    def get_operator_queue(self, centre_id: str, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieves real-time in-queue farmer bookings for a specific Mandi centre terminal."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            query = """
+                SELECT * FROM bookings
+                WHERE centre_id = ?
+            """
+            params: List[Any] = [centre_id]
+
+            if status_filter:
+                query += " AND status = ?"
+                params.append(status_filter)
+            else:
+                query += " AND status NOT IN ('CANCELLED', 'REJECTED')"
+
+            query += """
+                ORDER BY 
+                    CASE 
+                        WHEN status = 'ARRIVED' THEN 1
+                        WHEN status = 'WEIGHING_COMPLETED' THEN 2
+                        WHEN status = 'QUALITY_VERIFIED' THEN 3
+                        WHEN status = 'BOOKED' THEN 4
+                        ELSE 5
+                    END,
+                    token_sequence ASC
+            """
+            cursor.execute(query, params)
+            bookings = rows_to_list(cursor.fetchall())
+
+            for b in bookings:
+                cursor.execute("SELECT * FROM weighbridge_records WHERE booking_id = ?", (b["id"],))
+                b["weighbridge"] = row_to_dict(cursor.fetchone())
+
+                cursor.execute("SELECT * FROM quality_inspections WHERE booking_id = ?", (b["id"],))
+                b["quality"] = row_to_dict(cursor.fetchone())
+
+                cursor.execute("SELECT * FROM payments WHERE booking_id = ?", (b["id"],))
+                b["payment"] = row_to_dict(cursor.fetchone())
+
+                cursor.execute("SELECT * FROM gate_entries WHERE booking_id = ? ORDER BY entry_time DESC LIMIT 1", (b["id"],))
+                b["gate_entry"] = row_to_dict(cursor.fetchone())
+
+            return bookings
 
 
 # Global Singleton Store instance

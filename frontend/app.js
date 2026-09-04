@@ -465,6 +465,95 @@ function changeLanguage(langCode) {
   }
 }
 
+function handleRoleTabClick(targetRole) {
+  if (targetRole === "farmer") {
+    setRole("farmer");
+    return;
+  }
+
+  const user = STATE.user;
+  const isAuthorized = user && (user.role === targetRole || user.role === "admin");
+  if (isAuthorized) {
+    setRole(targetRole);
+    return;
+  }
+
+  openAuthorityLoginModal(targetRole);
+}
+
+function openAuthorityLoginModal(targetRole) {
+  const modal = document.getElementById("authority-login-modal");
+  if (!modal) return;
+  const title = document.getElementById("auth-modal-title");
+  const sub = document.getElementById("auth-modal-sub");
+  const roleInput = document.getElementById("auth-modal-target-role");
+  
+  if (roleInput) roleInput.value = targetRole;
+  if (title) {
+    title.textContent = targetRole === "admin" 
+      ? "🏛️ जिला प्रशासन प्रमाणीकरण (District Admin SSO)" 
+      : "⚖️ मंडी ऑपरेटर कंसोल लॉगिन (Mandi Operator Login)";
+  }
+  if (sub) {
+    sub.textContent = targetRole === "admin"
+      ? "जिला कृषि उप-निदेशक / मंडी सचिव प्रशासनिक स्तर प्रमाणीकरण"
+      : "क्रय केंद्र वेइंग एवं धर्मकांटा ऑपरेटर सुरक्षित टर्मिनल";
+  }
+
+  fillAuthorityDemo(targetRole);
+  modal.classList.remove("hidden");
+}
+
+function closeAuthorityLoginModal() {
+  const modal = document.getElementById("authority-login-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function fillAuthorityDemo(role) {
+  const idEl = document.getElementById("auth-modal-id");
+  const pwdEl = document.getElementById("auth-modal-pwd");
+  const roleInput = document.getElementById("auth-modal-target-role");
+  if (roleInput) roleInput.value = role;
+
+  if (role === "admin") {
+    if (idEl) idEl.value = "9800000000";
+    if (pwdEl) pwdEl.value = "admin123";
+  } else {
+    if (idEl) idEl.value = "9800000001";
+    if (pwdEl) pwdEl.value = "password123";
+  }
+}
+
+async function handleAuthorityLoginSubmit(e) {
+  if (e) e.preventDefault();
+  const id = document.getElementById("auth-modal-id").value.trim();
+  const pwd = document.getElementById("auth-modal-pwd").value.trim();
+  const targetRole = document.getElementById("auth-modal-target-role").value || "operator";
+
+  try {
+    const res = await api("/api/auth/login", "POST", {
+      identifier: id,
+      password: pwd,
+      role: targetRole
+    });
+
+    if (res.token) {
+      localStorage.setItem("kq_token", res.token);
+    }
+    if (res.user) {
+      STATE.user = res.user;
+      const headerName = document.getElementById("header-user-name");
+      if (headerName) headerName.textContent = res.user.name;
+    }
+
+    closeAuthorityLoginModal();
+    showToast(`✓ अधिकृत पहुंच सत्यापित: ${res.user ? res.user.name : targetRole}`, "success");
+    setRole(targetRole);
+  } catch (err) {
+    showToast(`प्रमाणीकरण विफल: ${err.message}`, "error");
+  }
+}
+
 function setRole(roleName) {
   STATE.role = roleName;
   document.querySelectorAll(".role-tab-btn").forEach(b => {
@@ -487,8 +576,21 @@ function setRole(roleName) {
   if (opView) opView.classList.toggle("hidden", roleName !== "operator");
   if (admView) admView.classList.toggle("hidden", roleName !== "admin");
 
-  if (roleName === "operator") refreshOperatorView();
-  if (roleName === "admin") refreshAdminView();
+  if (roleName === "farmer") {
+    requestAnimationFrame(() => {
+      setTimeout(() => { if (typeof farmerGisMap !== 'undefined' && farmerGisMap) farmerGisMap.invalidateSize(); }, 200);
+    });
+  }
+  if (roleName === "operator") {
+    refreshOperatorView();
+    refreshOperatorLiveQueue();
+  }
+  if (roleName === "admin") {
+    refreshAdminView();
+    requestAnimationFrame(() => {
+      setTimeout(() => { if (typeof adminGisMap !== 'undefined' && adminGisMap) adminGisMap.invalidateSize(); }, 200);
+    });
+  }
 }
 
 function scrollToSection(id) {
@@ -527,6 +629,7 @@ async function bootApp() {
 
   await loadCentres();
   await refreshFarmerData();
+  renderCentreDailySchedule();
   populateBookingCentreOptions();
   populateOperatorCentreOptions();
   calculateFormEstimates();
@@ -556,6 +659,7 @@ async function refreshFarmerData(silent = false) {
   if (!STATE.myTokenNumber) {
     renderFarmerEmptyState();
     renderSlotMatrix(STATE.bookingCentreChoice || (STATE.centres[0] && STATE.centres[0].id));
+    renderCentreDailySchedule();
     return;
   }
   try {
@@ -573,6 +677,7 @@ async function refreshFarmerData(silent = false) {
     renderStepper();
     renderPaymentCard();
     renderSlotMatrix(STATE.myBooking.centre_id);
+    renderCentreDailySchedule();
     initFarmerGisMap();
     loadFarmerCropSubmissions();
     renderFarmerBookingHistory();
@@ -963,20 +1068,25 @@ function renderNearbyCentres() {
 
 function renderAiRecommendation() {
   const overloaded = STATE.centres.find(c => c.current_load_percentage >= 80);
-  const banner = document.getElementById("ai-recommend-banner");
+  const banner = document.getElementById("ai-smart-banner") || document.getElementById("ai-recommend-banner");
+  if (!banner) return;
   if (!overloaded) { banner.classList.add("hidden"); return; }
   
   const alt = [...STATE.centres].filter(c => c.id !== overloaded.id).sort((a, b) => a.current_load_percentage - b.current_load_percentage)[0];
   if (!alt) { banner.classList.add("hidden"); return; }
 
-  document.getElementById("ai-recommend-text").textContent =
-    `${overloaded.name.split(" (")[0]} पर ${overloaded.current_load_percentage}% भारी भीड़ है। हम ${alt.name.split(" (")[0]} (~${alt.distance_km || 7} km) की सिफारिश करते हैं — केवल ${alt.current_load_percentage}% लोड (~47 मिनट कम प्रतीक्षा)।`;
+  const txt = document.getElementById("ai-smart-text") || document.getElementById("ai-recommend-text");
+  if (txt) {
+    txt.textContent =
+      `${overloaded.name.split(" (")[0]} पर ${overloaded.current_load_percentage}% भारी भीड़ है। हम ${alt.name.split(" (")[0]} (~${alt.distance_km || 7} km) की सिफारिश करते हैं — केवल ${alt.current_load_percentage}% लोड (~47 मिनट कम प्रतीक्षा)।`;
+  }
   banner.dataset.targetCentre = alt.id;
   banner.classList.remove("hidden");
 }
 
 function switchRecommendedCentre() {
-  const banner = document.getElementById("ai-recommend-banner");
+  const banner = document.getElementById("ai-smart-banner") || document.getElementById("ai-recommend-banner");
+  if (!banner) return;
   const cid = banner.dataset.targetCentre;
   if (!cid) return;
   STATE.bookingCentreChoice = cid;
@@ -986,26 +1096,166 @@ function switchRecommendedCentre() {
   openBookingModal();
 }
 
-// [STEP 2] Hourly Slot Matrix with Exactly ONE "🟢 YOUR SLOT"
-async function renderSlotMatrix(centreId) {
-  if (!centreId) return;
+let currentSlotFilter = {
+  centreId: null,
+  cropType: "Wheat (गेहूँ)",
+  date: new Date().toISOString().slice(0, 10)
+};
+
+async function onSlotFilterChange() {
+  const centreSel = document.getElementById("slot-filter-centre");
+  const cropSel = document.getElementById("slot-filter-crop");
+  const dateInput = document.getElementById("slot-filter-date");
+
+  currentSlotFilter.centreId = centreSel ? centreSel.value : (currentSlotFilter.centreId || "centre-a");
+  currentSlotFilter.cropType = cropSel ? cropSel.value : "Wheat (गेहूँ)";
+  currentSlotFilter.date = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().slice(0, 10);
+
+  await renderSlotMatrix(currentSlotFilter.centreId, currentSlotFilter.cropType, currentSlotFilter.date);
+}
+
+function resetSlotFilters() {
+  const firstCentre = (STATE.centres && STATE.centres[0]) ? STATE.centres[0].id : "centre-a";
+  currentSlotFilter = {
+    centreId: firstCentre,
+    cropType: "Wheat (गेहूँ)",
+    date: new Date().toISOString().slice(0, 10)
+  };
+  const centreSel = document.getElementById("slot-filter-centre");
+  const cropSel = document.getElementById("slot-filter-crop");
+  const dateInput = document.getElementById("slot-filter-date");
+  if (centreSel) centreSel.value = firstCentre;
+  if (cropSel) cropSel.value = "Wheat (गेहूँ)";
+  if (dateInput) dateInput.value = currentSlotFilter.date;
+
+  renderSlotMatrix(currentSlotFilter.centreId, currentSlotFilter.cropType, currentSlotFilter.date);
+}
+
+function applyBestRecommendedCentre() {
+  const card = document.getElementById("slot-best-recommendation-card");
+  const targetId = card ? card.dataset.bestCentreId : null;
+  if (!targetId) return;
+  const centreSel = document.getElementById("slot-filter-centre");
+  if (centreSel) centreSel.value = targetId;
+  onSlotFilterChange();
+  showToast("सर्वोत्तम अनुशंसित क्रय केंद्र चयनित।", "success");
+}
+
+// [STEP 2] Reactive Slot Allocation Matrix with Filters & Real-Time Capacity
+async function renderSlotMatrix(centreId, cropType, targetDate) {
+  const cid = centreId || currentSlotFilter.centreId || (STATE.centres[0] && STATE.centres[0].id) || "centre-a";
+  const cType = cropType || currentSlotFilter.cropType || "Wheat (गेहूँ)";
+  const tDate = targetDate || currentSlotFilter.date || new Date().toISOString().slice(0, 10);
+  currentSlotFilter.centreId = cid;
+  currentSlotFilter.cropType = cType;
+  currentSlotFilter.date = tDate;
+
+  // Initialize and sync filter select options
+  const centreSel = document.getElementById("slot-filter-centre");
+  if (centreSel) {
+    if (centreSel.options.length === 0 && STATE.centres.length > 0) {
+      centreSel.innerHTML = STATE.centres.map(c => `
+        <option value="${c.id}">${c.name.split(' (')[0]} (${c.current_load_percentage || 50}% Load)</option>
+      `).join('');
+    }
+    centreSel.value = cid;
+  }
+  const cropSel = document.getElementById("slot-filter-crop");
+  if (cropSel && cropSel.value !== cType) cropSel.value = cType;
+  const dateInput = document.getElementById("slot-filter-date");
+  if (dateInput && !dateInput.value) dateInput.value = tDate;
+
   try {
-    const res = await api(`/api/centres/${centreId}/slots`);
-    const slots = res.data || [];
+    // 1. Fetch hourly slots
+    const slotsRes = await api(`/api/centres/${cid}/slots?booking_date=${tDate}`);
+    const slots = slotsRes.data || [];
+
+    // 2. Fetch multi-centre availability and algorithmic recommendation
+    const availRes = await api(`/api/availability/crop-centres?crop_type=${encodeURIComponent(cType)}&date=${tDate}`);
+    const availCentres = availRes.centres || [];
+    const bestOpt = availRes.best_option || {};
+    const currCentreStats = availCentres.find(c => c.centre_id === cid) || {};
+
+    // 3. Render Capacity Summary Chips
+    const summaryContainer = document.getElementById("slot-capacity-summary");
+    if (summaryContainer) {
+      const totalCap = currCentreStats.total_capacity_slots || (slots.reduce((acc, s) => acc + s.max_capacity, 0) || 120);
+      const bookedCap = currCentreStats.booked_slots || (slots.reduce((acc, s) => acc + s.booked_count, 0) || 0);
+      const remainingCap = Math.max(0, totalCap - bookedCap);
+      const loadPct = currCentreStats.load_percentage !== undefined ? currCentreStats.load_percentage : Math.min(100, Math.round((bookedCap / Math.max(1, totalCap)) * 100));
+      const waitMins = currCentreStats.estimated_wait_time_minutes || 25;
+      const counters = currCentreStats.active_counters || 3;
+
+      let loadColor = loadPct >= 80 ? "rose" : loadPct >= 50 ? "amber" : "emerald";
+
+      summaryContainer.innerHTML = `
+        <div class="p-2.5 rounded-xl bg-white border border-slate-200 text-center shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">दैनिक क्षमता</span>
+          <span class="text-base font-black text-slate-900 block mt-0.5">${totalCap}</span>
+          <span class="text-[9px] text-slate-400">कुल स्लॉट</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-white border border-slate-200 text-center shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">आरक्षित (Booked)</span>
+          <span class="text-base font-black text-slate-900 block mt-0.5">${bookedCap}</span>
+          <span class="text-[9px] text-slate-400">टोकन जारी</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-center shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-emerald-800 block">खुले स्लॉट (Open)</span>
+          <span class="text-base font-black text-emerald-700 block mt-0.5">${remainingCap}</span>
+          <span class="text-[9px] text-emerald-600 font-bold">उपलब्ध</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-${loadColor}-50 border border-${loadColor}-300 text-center shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-${loadColor}-800 block">कतार भार (Load)</span>
+          <span class="text-base font-black text-${loadColor}-700 block mt-0.5">${loadPct}%</span>
+          <span class="text-[9px] text-${loadColor}-600 font-bold">${loadPct >= 80 ? 'उच्च भीड़' : loadPct >= 50 ? 'मध्यम' : 'सुगम'}</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-center shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-teal-800 block">प्रतीक्षा समय</span>
+          <span class="text-base font-black text-teal-800 block mt-0.5">~${waitMins}m</span>
+          <span class="text-[9px] text-teal-600">औसत समय</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-center shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">सक्रिय कांटे</span>
+          <span class="text-base font-black text-slate-800 block mt-0.5">${counters}</span>
+          <span class="text-[9px] text-slate-400">वेइंग काउंटर</span>
+        </div>`;
+    }
+
+    // 4. Render Best Mandi Recommendation Box
+    const recCard = document.getElementById("slot-best-recommendation-card");
+    const recText = document.getElementById("slot-best-rec-text");
+    if (recCard && recText && bestOpt.centre_name) {
+      recCard.dataset.bestCentreId = bestOpt.centre_id;
+      recText.textContent = `${bestOpt.centre_name}: ${bestOpt.reason}`;
+      const btn = document.getElementById("btn-select-best-centre");
+      if (btn) {
+        btn.classList.toggle("hidden", bestOpt.centre_id === cid);
+      }
+    }
+
+    // 5. Render Slots Grid
+    const slotGrid = document.getElementById("slot-grid");
+    if (!slotGrid) return;
     const mySlotWindow = STATE.myBooking ? (STATE.myBooking.time_window || "") : "";
 
-    document.getElementById("slot-grid").innerHTML = slots.map(s => {
+    if (slots.length === 0) {
+      slotGrid.innerHTML = `<div class="col-span-full text-center py-6 text-slate-400 text-xs font-semibold">इस तिथि पर कोई स्लॉट उपलब्ध नहीं हैं।</div>`;
+      return;
+    }
+
+    slotGrid.innerHTML = slots.map(s => {
       const isMySlot = STATE.myBooking && (s.time_window === mySlotWindow || s.display_time_window === STATE.myBooking.display_time_window);
       const isFull = !s.is_available && !isMySlot;
+      const openCount = Math.max(0, s.max_capacity - s.booked_count);
       
       let cardStyle = "border-slate-200 bg-white hover:border-emerald-400";
       if (isMySlot) {
         cardStyle = "border-2 border-emerald-600 bg-emerald-50 shadow-md ring-2 ring-emerald-400/50";
       } else if (isFull) {
         cardStyle = "border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed";
-      } else if (s.congestion_level === "high") {
+      } else if (s.congestion_level === "high" || openCount <= 2) {
         cardStyle = "border-rose-300 bg-rose-50/50";
-      } else if (s.congestion_level === "medium") {
+      } else if (s.congestion_level === "medium" || openCount <= 5) {
         cardStyle = "border-amber-300 bg-amber-50/50";
       } else {
         cardStyle = "border-emerald-300 bg-emerald-50/40";
@@ -1014,11 +1264,77 @@ async function renderSlotMatrix(centreId) {
       return `<div class="p-3.5 rounded-2xl border transition-all text-center relative ${cardStyle}">
         ${isMySlot ? '<span class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-emerald-700 text-white font-black text-[9px] rounded-full shadow tracking-wider">🟢 YOUR SLOT</span>' : ''}
         <p class="text-xs font-black text-slate-900">${s.display_time_window || s.time_window}</p>
-        <p class="text-[10px] font-bold text-slate-500 mt-1">${isFull ? 'Full' : `${s.max_capacity - s.booked_count} Open`}</p>
-        ${!isMySlot && !isFull ? `<button onclick="openBookingModalWithSlot('${s.time_window}', '${centreId}')" class="mt-2 w-full py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition shadow">Book Slot</button>` : ''}
+        <p class="text-[10px] font-bold text-slate-500 mt-1">${isFull ? '<span class="text-rose-600 font-bold">Full</span>' : `<span class="text-emerald-700 font-bold">${openCount} Open</span>`}</p>
+        ${!isMySlot && !isFull ? `<button onclick="openBookingModalWithSlot('${s.time_window}', '${cid}', '${tDate}', '${cType}')" class="mt-2 w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold rounded-lg transition shadow">स्लॉट बुक करें</button>` : ''}
+        ${isMySlot ? `<div class="mt-2 text-[10px] font-bold text-emerald-800 bg-emerald-100/80 py-1 rounded-lg">आपका आरक्षित स्लॉट</div>` : ''}
       </div>`;
     }).join("");
-  } catch (e) { /* silent */ }
+
+  } catch (e) {
+    console.warn("Slot matrix render error:", e);
+  }
+}
+
+// Daily Mandi Procurement Schedule ("आज किस केंद्र पर कौन सी फसल ली जा रही है?")
+async function renderCentreDailySchedule() {
+  const container = document.getElementById("centre-schedule-grid");
+  if (!container) return;
+  try {
+    const res = await api("/api/centres/daily-schedule");
+    const schedules = res.schedules || [];
+    if (schedules.length === 0) return;
+
+    container.innerHTML = schedules.map(s => {
+      const loadColor = s.load_percentage >= 80 ? "rose" : s.load_percentage >= 50 ? "amber" : "emerald";
+      return `
+        <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-extrabold text-slate-900 text-xs">${s.centre_name.split(" -")[0]}</h4>
+              <span class="text-[10px] text-slate-400 font-bold block">${s.centre_id.toUpperCase()}</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${loadColor}-100 text-${loadColor}-800 border border-${loadColor}-300">
+              ${s.load_percentage}% भार
+            </span>
+          </div>
+
+          <div class="space-y-1.5 text-[11px]">
+            <div class="text-slate-600">
+              <span class="font-bold text-slate-700">🕒 समय:</span> ${s.operating_hours}
+            </div>
+            <div class="text-slate-600">
+              <span class="font-bold text-slate-700">🚪 गेट:</span> ${s.gate_entry || 'Main Gate 1'}
+            </div>
+            <div class="text-slate-600">
+              <span class="font-bold text-slate-700">🌾 स्वीकृत फसलें:</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                ${(s.crops_scheduled || []).map(cp => `
+                  <span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[9px] font-bold">
+                    ${cp.split(' ')[0]}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span class="text-[10px] text-slate-500 font-bold">${s.open_slots} खुले स्लॉट</span>
+            <button onclick="selectCentreForBooking('${s.centre_id}')" class="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-[10px] transition shadow">
+              स्लॉट चुनें &rarr;
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    console.warn("Centre daily schedule error:", err);
+  }
+}
+
+function selectCentreForBooking(centreId) {
+  const sel = document.getElementById("slot-filter-centre");
+  if (sel) sel.value = centreId;
+  onSlotFilterChange();
+  scrollToSection("slot-section");
 }
 
 // [STEP 2 & 8] Missed Slot Recovery Flow with Confirmation Modal
@@ -1169,15 +1485,36 @@ function openBookingModal() {
 }
 function closeBookingModal() { document.getElementById("booking-modal").classList.add("hidden"); }
 
-function openBookingModalWithSlot(slotTime, centreId) {
+function openBookingModalWithSlot(slotTime, centreId, dateVal, cropVal) {
   openBookingModal();
-  if (centreId) document.getElementById("form-centre").value = centreId;
-  if (slotTime) {
-    const slotSelect = document.getElementById("form-time-slot");
-    for (const opt of slotSelect.options) {
-      if (opt.value.startsWith(slotTime.slice(0, 5))) { opt.selected = true; break; }
+  if (centreId) {
+    const cEl = document.getElementById("form-centre");
+    if (cEl) cEl.value = centreId;
+  }
+  if (dateVal) {
+    const dEl = document.getElementById("form-date");
+    if (dEl) dEl.value = dateVal;
+  }
+  if (cropVal) {
+    const crEl = document.getElementById("form-crop");
+    if (crEl) {
+      for (const opt of crEl.options) {
+        if (opt.value.toLowerCase().includes(cropVal.toLowerCase()) || cropVal.toLowerCase().includes(opt.value.toLowerCase())) {
+          opt.selected = true;
+          break;
+        }
+      }
     }
   }
+  if (slotTime) {
+    const slotSelect = document.getElementById("form-time-slot");
+    if (slotSelect) {
+      for (const opt of slotSelect.options) {
+        if (opt.value.startsWith(slotTime.slice(0, 5))) { opt.selected = true; break; }
+      }
+    }
+  }
+  calculateFormEstimates();
 }
 
 function calculateFormEstimates() {
@@ -1262,6 +1599,209 @@ async function refreshOperatorView() {
     <div class="glass-card p-4 rounded-2xl text-center"><span class="text-[10px] font-bold text-slate-500 block uppercase">Avg Clearance</span><span class="text-xl font-black text-teal-700 mt-1 block">${centre.avg_processing_time_min}m</span></div>`;
 
   loadOperatorCropSubmissions();
+  refreshOperatorLiveQueue();
+}
+
+async function refreshOperatorLiveQueue() {
+  const container = document.getElementById("operator-live-queue-container");
+  if (!container) return;
+  const cid = STATE.operatorCentreId || "centre-a";
+  const filterEl = document.getElementById("operator-queue-filter");
+  const filterVal = filterEl ? filterEl.value : "ALL";
+
+  try {
+    const url = `/api/operator/queue/${cid}${filterVal !== 'ALL' ? `?status=${filterVal}` : ''}`;
+    const res = await api(url);
+    const queue = res.data || [];
+
+    if (queue.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-8 text-slate-400">
+          <i class="fa-solid fa-clipboard-check text-3xl mb-2 text-slate-300 block"></i>
+          <p class="text-xs font-semibold">इस केंद्र पर वर्तमान में कोई कतारबद्ध किसान नहीं है।</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+            <th class="p-3">टोकन / गेट पास</th>
+            <th class="p-3">किसान विवरण</th>
+            <th class="p-3">फसल व मात्रा</th>
+            <th class="p-3">वाहन संख्या</th>
+            <th class="p-3">वर्तमान स्थिति</th>
+            <th class="p-3">आवक समय</th>
+            <th class="p-3 text-right">कार्रवाई (Stage Actions)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+          ${queue.map(b => {
+            const isArrived = b.status === 'ARRIVED';
+            const isWeighed = b.status === 'WEIGHING_COMPLETED';
+            const isQualityPassed = b.status === 'QUALITY_VERIFIED';
+            const isProcured = b.status === 'PROCURED';
+            const isPaid = b.status === 'PAYMENT_CREDITED';
+
+            let statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">${b.status}</span>`;
+            if (isArrived) statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">🚚 गेट इन</span>`;
+            else if (isWeighed) statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">⚖️ वेइंग पूर्ण</span>`;
+            else if (isQualityPassed) statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">🔬 FAQ पास</span>`;
+            else if (isProcured) statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">✅ खरीद स्वीकृत</span>`;
+            else if (isPaid) statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">💰 DBT जमा</span>`;
+
+            return `
+              <tr class="hover:bg-slate-50 transition">
+                <td class="p-3">
+                  <div class="font-extrabold text-slate-900 font-mono text-xs">${b.token_number}</div>
+                  <div class="text-[10px] text-emerald-700 font-mono font-bold">${b.gate_entry_id || (b.gate_entry && b.gate_entry.gate_entry_number) || '—'}</div>
+                </td>
+                <td class="p-3">
+                  <div class="font-bold text-slate-900">${b.farmer_name}</div>
+                  <div class="text-[11px] text-slate-400 font-mono">${b.farmer_mobile || ''}</div>
+                </td>
+                <td class="p-3">
+                  <div class="font-bold text-slate-900">${b.crop_type}</div>
+                  <div class="text-[11px] text-slate-500 font-bold">${b.quantity_quintal} Q</div>
+                </td>
+                <td class="p-3 font-mono font-bold text-slate-700 text-[11px]">
+                  ${b.vehicle_number || 'HR-05-AB-7821'}
+                </td>
+                <td class="p-3">
+                  ${statusBadge}
+                </td>
+                <td class="p-3 text-[11px] text-slate-500">
+                  ${b.arrived_at || b.display_time_window || b.time_window || '—'}
+                </td>
+                <td class="p-3 text-right">
+                  <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                    ${b.status === 'BOOKED' ? `
+                      <button onclick="openGateEntryModal('${b.token_number}')" class="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-bold transition shadow">
+                        🚚 गेट इन
+                      </button>
+                    ` : ''}
+                    ${isArrived ? `
+                      <button onclick="operatorRecordWeighing('${b.token_number}')" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition shadow">
+                        ⚖️ वेइंग
+                      </button>
+                    ` : ''}
+                    ${isWeighed ? `
+                      <button onclick="operatorRecordQuality('${b.token_number}')" class="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-bold transition shadow">
+                        🔬 गुणवत्ता
+                      </button>
+                    ` : ''}
+                    ${isQualityPassed ? `
+                      <button onclick="operatorAction('${b.token_number}', 'complete_procurement')" class="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold transition shadow">
+                        ✅ खरीद
+                      </button>
+                    ` : ''}
+                    ${isProcured ? `
+                      <button onclick="operatorAction('${b.token_number}', 'initiate_payment')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition shadow">
+                        💰 DBT
+                      </button>
+                    ` : ''}
+                    <button onclick="operatorLoadTokenFromQueue('${b.token_number}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition">
+                      विवरण
+                    </button>
+                  </div>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    container.innerHTML = `<p class="text-rose-600 text-xs p-3">कतार लोड करने में त्रुटि: ${err.message}</p>`;
+  }
+}
+
+function operatorLoadTokenFromQueue(token) {
+  const input = document.getElementById("operator-token-input");
+  if (input) input.value = token;
+  operatorLoadToken();
+  scrollToSection("operator-farmer-detail");
+}
+
+// -------------------------------------------------------------
+// GATE ENTRY & MANDI ARRIVAL MODAL HANDLERS
+// -------------------------------------------------------------
+function openGateEntryModal(tokenNumber) {
+  const modal = document.getElementById("gate-entry-modal");
+  if (!modal) return;
+  const tokenInput = document.getElementById("ge-token-input");
+  const vehicleInput = document.getElementById("ge-vehicle-input");
+  const driverInput = document.getElementById("ge-driver-input");
+  const resultCard = document.getElementById("ge-result-card");
+  if (resultCard) resultCard.classList.add("hidden");
+
+  const targetToken = tokenNumber || STATE.myTokenNumber || "#A-52";
+  if (tokenInput) tokenInput.value = targetToken;
+  if (driverInput) driverInput.value = (STATE.myBooking && STATE.myBooking.farmer_name) || "Ramesh Kumar";
+  if (vehicleInput) vehicleInput.value = (STATE.myBooking && STATE.myBooking.vehicle_number) || "HR-05-AB-7821";
+
+  modal.classList.remove("hidden");
+}
+
+function closeGateEntryModal() {
+  const modal = document.getElementById("gate-entry-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function handleGateEntrySubmit(e) {
+  if (e) e.preventDefault();
+  const token = document.getElementById("ge-token-input").value.trim();
+  const gate = document.getElementById("ge-gate-select").value;
+  const vehicle = document.getElementById("ge-vehicle-input").value.trim();
+  const driver = document.getElementById("ge-driver-input").value.trim();
+  const notes = document.getElementById("ge-notes-input").value.trim();
+
+  try {
+    const res = await api("/api/gate-entry/register", "POST", {
+      token_number: token,
+      gate_number: gate,
+      vehicle_number: vehicle,
+      driver_name: driver,
+      notes: notes
+    });
+
+    const resultCard = document.getElementById("ge-result-card");
+    const resultNum = document.getElementById("ge-result-number");
+    if (resultCard && resultNum) {
+      resultNum.textContent = res.gate_entry_number || (res.gate_entry && res.gate_entry.gate_entry_number) || "GE-PASS-CONFIRMED";
+      resultCard.classList.remove("hidden");
+    }
+
+    showToast(`✓ गेट प्रवेश दर्ज! पास संख्या: ${res.gate_entry_number}`, "success");
+
+    if (STATE.myTokenNumber && token.toUpperCase() === STATE.myTokenNumber.toUpperCase()) {
+      await refreshFarmerData();
+    }
+    refreshOperatorLiveQueue();
+    refreshSmsLogs();
+
+    setTimeout(() => {
+      closeGateEntryModal();
+    }, 1800);
+  } catch (err) {
+    showToast(`गेट प्रवेश विफल: ${err.message}`, "error");
+  }
+}
+
+// -------------------------------------------------------------
+// PUBLIC TRUST & SERVICE MODAL HANDLERS
+// -------------------------------------------------------------
+function openPublicTrustModal() {
+  const modal = document.getElementById("public-trust-modal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closePublicTrustModal() {
+  const modal = document.getElementById("public-trust-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function openGrievanceModal() {
+  openComplaintModal();
 }
 
 async function operatorLoadToken() {
@@ -1301,6 +1841,7 @@ async function operatorAction(tokenNumber, action, extra = {}) {
     showToast(res.message || "Action completed.", "success");
     if (res.data) renderOperatorFarmerDetail(res.data);
     refreshSmsLogs();
+    refreshOperatorLiveQueue();
     if (tokenNumber === STATE.myTokenNumber) refreshFarmerData();
   } catch (e) { showToast("Action failed: " + e.message, "error"); }
 }
@@ -1532,27 +2073,67 @@ function createGisMarkerIcon(color, label, iconClass = "fa-warehouse") {
   });
 }
 
+function renderGisFallback(centres) {
+  const fallbackEl = document.getElementById("farmer-gis-fallback");
+  if (!fallbackEl) return;
+  const list = centres && centres.length > 0 ? centres : (STATE.centres || []);
+  if (list.length === 0) return;
+
+  fallbackEl.innerHTML = list.map(c => {
+    const load = c.load !== undefined ? c.load : (c.current_load_percentage || 50);
+    const color = load >= 80 ? "rose" : load >= 50 ? "amber" : "emerald";
+    return `
+      <div class="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="font-extrabold text-xs text-slate-900">${(c.name || 'Centre').split(" -")[0]}</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${color}-100 text-${color}-800 border border-${color}-300">${load}% भार</span>
+        </div>
+        <p class="text-[11px] text-slate-500 truncate">${c.address || 'करनाल जिला'}</p>
+        <div class="flex justify-between text-[10px] text-slate-600 font-semibold pt-1">
+          <span>दूरी: <b>${c.distance_km || 5} km</b></span>
+          <span>औसत समय: <b>${c.avg_processing_time_min || 12} min</b></span>
+        </div>
+        <button onclick="switchCentreFromGis('${c.id}')" class="w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition shadow">
+          यह केंद्र चुनें
+        </button>
+      </div>`;
+  }).join('');
+  fallbackEl.classList.remove("hidden");
+}
+
 async function initFarmerGisMap() {
   const container = document.getElementById("farmer-gis-map");
   if (!container) return;
 
-  if (farmerGisMap) {
-    setTimeout(() => farmerGisMap.invalidateSize(), 150);
+  if (typeof L === "undefined") {
+    renderGisFallback(STATE.centres);
     return;
   }
 
-  // Centered on Karnal Mandi District
-  farmerGisMap = L.map("farmer-gis-map", {
-    zoomControl: true,
-    scrollWheelZoom: false
-  }).setView([29.6857, 76.9905], 11);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(farmerGisMap);
+  if (farmerGisMap) {
+    requestAnimationFrame(() => {
+      setTimeout(() => farmerGisMap.invalidateSize(), 150);
+    });
+    return;
+  }
 
   try {
+    // Centered on Karnal Mandi District
+    farmerGisMap = L.map("farmer-gis-map", {
+      zoomControl: true,
+      scrollWheelZoom: false
+    }).setView([29.6857, 76.9905], 11);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(farmerGisMap);
+
+    // Guarantee render dimensions
+    setTimeout(() => {
+      if (farmerGisMap) farmerGisMap.invalidateSize();
+    }, 200);
+
     const res = await api("/api/gis/locations");
     const data = res.data || {};
     const centres = data.centres || STATE.centres || [];
@@ -1617,7 +2198,8 @@ async function initFarmerGisMap() {
       }).addTo(farmerGisMap);
     }
   } catch (err) {
-    console.warn("Farmer GIS load error:", err);
+    console.warn("Farmer GIS load error, rendering cards fallback:", err);
+    renderGisFallback(STATE.centres);
   }
 }
 

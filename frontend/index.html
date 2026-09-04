@@ -204,7 +204,7 @@
         </div>
       </div>
 
-      <p class="text-center text-[11px] text-slate-400 mt-5 font-semibold">KisanQueue Smart India Hackathon 2026 Prototype</p>
+      <p class="text-center text-[11px] text-slate-400 mt-5 font-semibold">KisanQueue — राष्ट्रीय डिजिटल कृषि खरीद एवं कतार प्रबंधन पोर्टल | Department of Agriculture &amp; Farmers Welfare, Haryana</p>
     </div>
   </div>
 
@@ -222,7 +222,7 @@
             <div>
               <div class="flex items-center gap-2">
                 <h1 class="text-base font-extrabold text-slate-900 leading-tight font-hindi">KisanQueue <span class="text-emerald-700 font-black">(किसान कतार)</span></h1>
-                <span class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm">SIH 2026</span>
+                <span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[10px] px-2 py-0.5 rounded-full shadow-sm">भारत सरकार · Gov of India</span>
               </div>
               <p class="text-[10px] text-slate-500 leading-tight hidden sm:block">स्मार्ट किसान फसल खरीद और रियल-टाइम कतार प्रबंधन प्रणाली</p>
             </div>
@@ -230,13 +230,13 @@
 
           <!-- Role Navigation Pills -->
           <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
-            <button onclick="setRole('farmer')" data-role="farmer" class="role-tab-btn px-4 py-1.5 rounded-xl text-xs font-extrabold transition bg-emerald-700 text-white shadow flex items-center gap-1.5">
+            <button onclick="handleRoleTabClick('farmer')" data-role="farmer" class="role-tab-btn px-4 py-1.5 rounded-xl text-xs font-extrabold transition bg-emerald-700 text-white shadow flex items-center gap-1.5">
               <span>🌾</span> <span>किसान पोर्टल</span>
             </button>
-            <button onclick="setRole('operator')" data-role="operator" class="role-tab-btn px-4 py-1.5 rounded-xl text-xs font-bold transition text-slate-700 hover:text-slate-900 flex items-center gap-1.5">
-              <span>⚖️</span> <span>केंद्र ऑपरेटर</span> <span class="text-[10px] opacity-70">🔓</span>
+            <button onclick="handleRoleTabClick('operator')" data-role="operator" class="role-tab-btn px-4 py-1.5 rounded-xl text-xs font-bold transition text-slate-700 hover:text-slate-900 flex items-center gap-1.5">
+              <span>⚖️</span> <span>केंद्र ऑपरेटर</span> <span class="text-[10px] opacity-70">🔒</span>
             </button>
-            <button onclick="setRole('admin')" data-role="admin" class="role-tab-btn px-4 py-1.5 rounded-xl text-xs font-bold transition text-slate-700 hover:text-slate-900 flex items-center gap-1.5">
+            <button onclick="handleRoleTabClick('admin')" data-role="admin" class="role-tab-btn px-4 py-1.5 rounded-xl text-xs font-bold transition text-slate-700 hover:text-slate-900 flex items-center gap-1.5">
               <span>🏛️</span> <span>जिला प्रशासन (Admin)</span> <span class="text-[10px] opacity-70">🔒</span>
             </button>
           </div>
@@ -276,9 +276,9 @@
 
         <!-- Mobile Role Tabs -->
         <div class="flex md:hidden justify-between pb-2 text-xs font-bold border-t border-slate-100 pt-2">
-          <button onclick="setRole('farmer')" data-role="farmer" class="role-tab-btn-m flex-1 py-1 text-center text-emerald-800 border-b-2 border-emerald-700">🌾 किसान</button>
-          <button onclick="setRole('operator')" data-role="operator" class="role-tab-btn-m flex-1 py-1 text-center text-slate-500 border-b-2 border-transparent">⚖️ ऑपरेटर</button>
-          <button onclick="setRole('admin')" data-role="admin" class="role-tab-btn-m flex-1 py-1 text-center text-slate-500 border-b-2 border-transparent">🏛️ प्रशासन</button>
+          <button onclick="handleRoleTabClick('farmer')" data-role="farmer" class="role-tab-btn-m flex-1 py-1 text-center text-emerald-800 border-b-2 border-emerald-700">🌾 किसान</button>
+          <button onclick="handleRoleTabClick('operator')" data-role="operator" class="role-tab-btn-m flex-1 py-1 text-center text-slate-500 border-b-2 border-transparent">⚖️ ऑपरेटर 🔒</button>
+          <button onclick="handleRoleTabClick('admin')" data-role="admin" class="role-tab-btn-m flex-1 py-1 text-center text-slate-500 border-b-2 border-transparent">🏛️ प्रशासन 🔒</button>
         </div>
       </div>
     </header>
@@ -384,6 +384,9 @@
 
         <!-- Real Leaflet Map Container -->
         <div id="farmer-gis-map" class="h-72 sm:h-80 w-full rounded-2xl border border-slate-200 shadow-inner z-0"></div>
+
+        <!-- GIS Resilient Fallback (Mandi Centre Cards if Tiles/Leaflet are offline/slow) -->
+        <div id="farmer-gis-fallback" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 py-1"></div>
 
         <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 pt-1 gap-2">
           <div class="flex items-center gap-4 flex-wrap">
@@ -498,7 +501,7 @@
               <span id="payment-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">PFMS Pending</span>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span class="text-slate-400 block text-[10px] uppercase font-bold">Total MSP Value</span>
                 <span id="pay-total-amt" class="text-base font-black text-slate-900 mt-0.5 block">₹ 1,21,250</span>
@@ -507,9 +510,13 @@
                 <span class="text-slate-400 block text-[10px] uppercase font-bold">DBT Status</span>
                 <span id="pay-status-text" class="font-bold text-slate-800 mt-0.5 block">Sanction Awaited</span>
               </div>
-              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span class="text-slate-400 block text-[10px] uppercase font-bold">PFMS Ref / Tx ID</span>
                 <span id="pay-tx-id" class="font-mono font-bold text-slate-800 mt-0.5 block truncate">—</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-slate-400 block text-[10px] uppercase font-bold">आधार लिंक बैंक</span>
+                <span id="pay-bank-masked" class="font-bold text-slate-800 mt-0.5 block truncate">SBI - XXXXXX9012</span>
               </div>
             </div>
 
@@ -600,16 +607,92 @@
         </div>
       </div>
 
-      <!-- Hourly Slot Allocation Matrix -->
+      <!-- 1. Centre Daily Crop Schedule (आज किस केंद्र पर कौन सी फसल ली जा रही है?) -->
+      <div id="centre-schedule-section" class="glass-card p-6 space-y-4 no-print">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-calendar-check text-emerald-700 text-base"></i>
+              <span>आज किस केंद्र पर कौन सी फसल ली जा रही है? (Daily Mandi Procurement Schedule)</span>
+            </h3>
+            <p class="text-xs text-slate-500">करनाल जिले के सभी 4 क्रय केंद्रों की दैनिक फसल सारणी, कार्य समय (08:00 AM - 05:00 PM) एवं आवक क्षमता</p>
+          </div>
+          <button onclick="renderCentreDailySchedule()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate"></i> ताज़ा करें
+          </button>
+        </div>
+        <div id="centre-schedule-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <!-- Dynamically populated from /api/centres/daily-schedule -->
+        </div>
+      </div>
+
+      <!-- 2. Interactive Hourly Slot Allocation Matrix -->
       <div id="slot-section" class="glass-card p-6 space-y-4 no-print">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
           <div>
-            <h3 class="text-sm font-extrabold text-slate-900">स्लॉट आवंटन (Slot Booking)</h3>
-            <p class="text-xs text-slate-500">उपलब्ध स्लॉट चुनकर तुरंत टोकन प्राप्त करें</p>
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-clock text-emerald-700 text-base"></i>
+              <span>स्लॉट आवंटन एवं वास्तविक क्षमता (Smart Slot Allocation Matrix)</span>
+            </h3>
+            <p class="text-xs text-slate-500">उपलब्ध क्रय केंद्र, फसल एवं तिथि चुनकर समय स्लॉट व टोकन आवंटित करें</p>
           </div>
-          <span class="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">1-Hour Regulated Windows</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">1-Hour Regulated Windows</span>
+          </div>
         </div>
-        <div id="slot-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"></div>
+
+        <!-- Filter Controls Bar -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">🏢 क्रय केंद्र (Procurement Centre):</label>
+            <select id="slot-filter-centre" onchange="onSlotFilterChange()" class="w-full text-xs font-bold border border-slate-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">🌾 फसल का प्रकार (Crop Type):</label>
+            <select id="slot-filter-crop" onchange="onSlotFilterChange()" class="w-full text-xs font-bold border border-slate-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <option value="Wheat (गेहूँ)">Wheat (गेहूँ) — MSP ₹2,425</option>
+              <option value="Paddy / Rice (धान)">Paddy / Rice (धान) — MSP ₹2,320</option>
+              <option value="Mustard / Sarson (सरसों)">Mustard / Sarson (सरसों) — MSP ₹5,950</option>
+              <option value="Gram / Chana (चना)">Gram / Chana (चना) — MSP ₹5,650</option>
+              <option value="Maize (मक्का)">Maize (मक्का) — MSP ₹2,225</option>
+              <option value="Barley (जौ)">Barley (जौ) — MSP ₹1,980</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">📅 तिथि (Procurement Date):</label>
+            <input id="slot-filter-date" type="date" onchange="onSlotFilterChange()" class="w-full text-xs font-bold border border-slate-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div class="flex items-end gap-2 pt-4 sm:pt-0">
+            <button onclick="onSlotFilterChange()" class="flex-1 py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-filter"></i> <span>लागू करें (Apply)</span>
+            </button>
+            <button onclick="resetSlotFilters()" class="py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition" title="Reset Filters">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Centre Live Capacity Summary Chips -->
+        <div id="slot-capacity-summary" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+          <!-- Dynamically populated in app.js: Total Capacity, Booked, Open, Congestion %, Wait Time, Active Counters -->
+        </div>
+
+        <!-- AI Best Recommendation Banner -->
+        <div id="slot-best-recommendation-card" class="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm font-black shrink-0">⚡</span>
+            <div>
+              <p class="font-extrabold text-amber-950 text-xs">अनुशंसित क्रय केंद्र (AI Recommendation)</p>
+              <p id="slot-best-rec-text" class="text-[11px] text-amber-900 font-medium">लोड हो रहा है...</p>
+            </div>
+          </div>
+          <button id="btn-select-best-centre" onclick="applyBestRecommendedCentre()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow transition shrink-0">
+            यह केंद्र चुनें
+          </button>
+        </div>
+
+        <!-- Slots Grid -->
+        <div id="slot-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2"></div>
       </div>
     </main>
 
@@ -652,13 +735,44 @@
         <div id="operator-farmer-detail" class="text-sm text-slate-500 font-medium">Enter a token number above or click "Call Next Token" to start procurement.</div>
       </div>
 
+      <!-- Live Mandi Queue & Gate Arrivals Section -->
+      <div class="glass-card p-6 rounded-3xl space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-emerald-700"></i>
+              <span>लाइव मंडी कतार एवं गेट आवक (Live Mandi Queue &amp; Gate Arrivals)</span>
+            </h3>
+            <p class="text-xs text-slate-500">केंद्र पर उपस्थित एवं प्रतीक्षारत सभी किसान, गेट पास संख्या व चरणबद्ध कार्रवाई</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openGateEntryModal()" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition shadow flex items-center gap-1.5">
+              <i class="fa-solid fa-truck-ramp-box"></i> + गेट प्रवेश दर्ज करें (Gate In)
+            </button>
+            <select id="operator-queue-filter" onchange="refreshOperatorLiveQueue()" class="text-xs font-bold border border-slate-300 rounded-xl px-2.5 py-1.5 bg-white">
+              <option value="ALL">सभी कतारबद्ध किसान (All Active)</option>
+              <option value="ARRIVED">गेट इन / उपस्थित (Arrived)</option>
+              <option value="WEIGHING_COMPLETED">वेइंग पूर्ण (Weighed)</option>
+              <option value="QUALITY_VERIFIED">गुणवत्ता सत्यापित (Quality Passed)</option>
+              <option value="BOOKED">आगामी स्लॉट (Booked)</option>
+            </select>
+            <button onclick="refreshOperatorLiveQueue()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+          </div>
+        </div>
+        <div id="operator-live-queue-container" class="overflow-x-auto">
+          <!-- Populated dynamically by renderOperatorLiveQueue() -->
+        </div>
+      </div>
+
       <!-- Mandi Operator Crop Quality Review Card -->
       <div class="glass-card p-6 rounded-3xl space-y-4">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
           <div>
             <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-microscope text-emerald-700"></i>
-              <span>फसल गुणवत्ता परीक्षण एवं एफसीआई एफएक्यू स्वीकृति (Crop Quality Assay & Acceptance)</span>
+              <span>फसल गुणवत्ता परीक्षण एवं एफसीआई एफएक्यू स्वीकृति (Crop Quality Assay &amp; Acceptance)</span>
             </h3>
             <p class="text-xs text-slate-500">आवक फसलों की नमी जाँचें (FAQ 12% मानक) और तुरंत स्वीकृति अथवा अस्वीकृति जारी करें</p>
           </div>
@@ -674,7 +788,7 @@
     <main id="view-admin" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
       <div class="glass-card p-5 rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 text-white shadow-xl">
         <h2 class="text-lg font-black">District Mandi Dashboard &amp; Load Balancer</h2>
-        <p class="text-xs text-slate-300 mt-0.5">District: Karnal, Haryana (SIH Live Procurement Telemetry)</p>
+        <p class="text-xs text-slate-300 mt-0.5">District: Karnal, Haryana (Official Mandi Procurement Telemetry &amp; Load Balancer)</p>
       </div>
 
       <div id="admin-metrics" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"></div>
@@ -1104,6 +1218,205 @@
       </div>
     </div>
   </div>
+
+  <!-- 11. GATE ENTRY / MANDI ARRIVAL REGISTRATION MODAL -->
+  <div id="gate-entry-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+          <i class="fa-solid fa-truck-ramp-box text-emerald-700"></i>
+          <span>मंडी गेट आवक पंजीकरण (Gate Entry &amp; Pass)</span>
+        </h3>
+        <button onclick="closeGateEntryModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="handleGateEntrySubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">टोकन संख्या (Token Number) *</label>
+          <input id="ge-token-input" type="text" placeholder="e.g. #A-52" required class="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-mono font-bold uppercase focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">गेट संख्या (Gate No.) *</label>
+            <select id="ge-gate-select" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-bold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <option value="Gate-1">मुख्य प्रवेश द्वार 1 (Gate-1)</option>
+              <option value="Gate-2">उत्तरी गेट 2 (Gate-2)</option>
+              <option value="Gate-3">ट्रॉली लेन गेट 3 (Gate-3)</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">वाहन संख्या (Vehicle No.) *</label>
+            <input id="ge-vehicle-input" type="text" placeholder="HR-05-XX-1234" required class="w-full border border-slate-300 rounded-xl px-3 py-2 font-mono font-bold uppercase focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">चालक / किसान का नाम (Driver / Farmer Name)</label>
+          <input id="ge-driver-input" type="text" placeholder="e.g. Ramesh Kumar" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">टिप्पणी (Gate Officer Note)</label>
+          <input id="ge-notes-input" type="text" value="भौतिक आवक सत्यापित · वजन लेन में भेजा गया" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div id="ge-result-card" class="hidden p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-1 text-center">
+          <p class="text-xs font-black text-emerald-900">✅ आधिकारिक गेट पास जारी (Official Gate Pass Generated)</p>
+          <p id="ge-result-number" class="text-base font-black font-mono text-emerald-800">GE-A-20260905-001</p>
+          <p class="text-[10px] text-emerald-700">किसान को आवक पुष्टिकरण एसएमएस प्रेषित कर दिया गया है।</p>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-3">
+          <button type="button" onclick="closeGateEntryModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">बंद करें</button>
+          <button type="submit" id="btn-submit-gate-entry" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow transition flex items-center gap-1.5">
+            <i class="fa-solid fa-check"></i> <span>गेट प्रवेश दर्ज करें (Issue Pass)</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 12. AUTHORITY LOGIN & SECURITY MODAL -->
+  <div id="authority-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-sm font-black">🔒</span>
+          <div>
+            <h3 id="auth-modal-title" class="font-extrabold text-slate-900 text-sm">प्राधिकरण प्रमाणीकरण (Authority Authentication)</h3>
+            <p id="auth-modal-sub" class="text-[11px] text-slate-500">इस पोर्टल तक पहुँचने के लिए अधिकृत क्रेडेंशियल्स आवश्यक हैं</p>
+          </div>
+        </div>
+        <button onclick="closeAuthorityLoginModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form onsubmit="handleAuthorityLoginSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">मोबाइल नंबर अथवा ऑपरेटर ID *</label>
+          <input id="auth-modal-id" type="text" placeholder="9800000001 (Operator) / 9800000000 (Admin)" required class="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">पासवर्ड / सेक्योर पिन *</label>
+          <input id="auth-modal-pwd" type="password" placeholder="••••••••" required class="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <input type="hidden" id="auth-modal-target-role" value="operator">
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeAuthorityLoginModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">रद्द करें</button>
+          <button type="submit" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow transition">सत्यापित करें व लॉगिन करें</button>
+        </div>
+
+        <!-- 1-Click Demo Fillers Clearly Marked -->
+        <div class="pt-3 border-t border-slate-100 space-y-2">
+          <span class="block text-[10px] font-black uppercase text-slate-400 text-center tracking-wider">त्वरित डेमो प्रमाणीकरण (DEMO ONLY)</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="fillAuthorityDemo('operator')" class="p-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl font-bold text-[11px] text-center transition">
+              ⚖️ ऑपरेटर क्रेडेंशियल्स
+            </button>
+            <button type="button" onclick="fillAuthorityDemo('admin')" class="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 rounded-xl font-bold text-[11px] text-center transition">
+              🏛️ जिला एडमिन क्रेडेंशियल्स
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 13. PUBLIC TRUST & ASSISTANCE MODAL -->
+  <!-- Farmer Grievance & Helpdesk Modal -->
+  <div id="complaint-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black">📞</div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-sm">किसान सहायता एवं शिकायत निवारण</h3>
+            <p class="text-[10px] text-slate-500 font-bold">Farmer Helpdesk &amp; Grievance Redressal (CPGRAMS Integrated)</p>
+          </div>
+        </div>
+        <button onclick="closeComplaintModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-900 text-xs flex items-center gap-3">
+        <span class="text-xl">☎️</span>
+        <div>
+          <p class="font-bold">मंडी किसान हेल्पलाइन: 1800-180-1551 (टोल-फ्री)</p>
+          <p class="text-[10px] text-emerald-700">उपलब्ध: सोमवार - शनिवार, प्रातः 08:00 से सायं 06:00 बजे तक</p>
+        </div>
+      </div>
+
+      <form onsubmit="handleComplaintSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">शिकायत का प्रकार (Category) *</label>
+          <select id="cmp-category" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800">
+            <option value="स्लॉट बुकिंग / टोकन समस्या">स्लॉट बुकिंग / टोकन समस्या (Slot Booking / Token Issue)</option>
+            <option value="वेइंग / धर्मकांटा विसंगति">वेइंग / धर्मकांटा विसंगति (Weighbridge Discrepancy)</option>
+            <option value="गुणवत्ता जांच / अस्वीकृति">गुणवत्ता जांच / अस्वीकृति (Quality Assay / Moisture Check)</option>
+            <option value="DBT / MSP भुगतान विलंब">DBT / MSP भुगतान विलंब (Payment Delay / PFMS Disbursal)</option>
+            <option value="गेट एंट्री व कतार असुविधा">गेट एंट्री व कतार असुविधा (Gate Entry &amp; Queue Issue)</option>
+            <option value="अन्य प्रशासनिक शिकायत">अन्य प्रशासनिक शिकायत (General Administration)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">शिकायत का विवरण (Description) *</label>
+          <textarea id="cmp-desc" rows="4" required placeholder="कृपया अपनी समस्या, टोकन संख्या अथवा वाहन संख्या के साथ विस्तार से लिखें..." class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 resize-none"></textarea>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeComplaintModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">रद्द करें</button>
+          <button type="submit" class="px-5 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl shadow transition">शिकायत दर्ज करें (Submit)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="public-trust-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black">🏛️</div>
+          <h3 class="font-extrabold text-slate-900 text-sm">सरकारी सेवा सूचना एवं पारदर्शिता दिशानिर्देश</h3>
+        </div>
+        <button onclick="closePublicTrustModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-600 leading-relaxed font-medium">
+        <p><b>KisanQueue (किसान कतार)</b> कृषि एवं किसान कल्याण मंत्रालय, भारत सरकार तथा हरियाणा राज्य कृषि विपणन बोर्ड की नीतियों के अनुसार संचालित स्मार्ट सार्वजनिक खरीद मंच है।</p>
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+          <div class="font-bold text-slate-900">🔒 डेटा सुरक्षा व पारदर्शी प्रणाली:</div>
+          <ul class="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
+            <li>किसान आधार डेटा केवल अंतिम 4 अंकों के साथ सुरक्षित रखा जाता है (Masked Storage)।</li>
+            <li>सभी न्यूनतम समर्थन मूल्य (MSP) भुगतान प्रत्यक्ष लाभ अंतरण (DBT via PFMS) द्वारा सीधे किसान के बैंक खाते में जमा होते हैं।</li>
+            <li>कतार आवंटन में किसी भी प्रकार का मानवीय हस्तक्षेप संभव नहीं है।</li>
+          </ul>
+        </div>
+        <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-[11px]">
+          <b>📢 डेमो वातावरण प्रकटीकरण:</b> यह प्लेटफ़ॉर्म वर्तमान में लाइव सिमुलेशन मोड में चल रहा है। सभी बैंक संदर्भ व एसएमएस वास्तविक भारतीय कृषि प्रक्रियाओं का अनुकरण करते हैं।
+        </div>
+      </div>
+      <div class="pt-2 flex justify-end">
+        <button onclick="closePublicTrustModal()" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition">समझ गया / ठीक है</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Government Public-Service Footer -->
+  <footer class="mt-auto bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🌾</span>
+        <div>
+          <p class="font-extrabold text-white text-sm">KisanQueue (किसान कतार) — राष्ट्रीय डिजिटल कृषि खरीद मंच</p>
+          <p class="text-[11px] text-slate-400">Department of Agriculture &amp; Farmers Welfare · District Mandi Administration, Karnal</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-xs font-bold flex-wrap">
+        <button onclick="openPublicTrustModal()" class="hover:text-white transition">🏛️ सरकारी सेवा दिशानिर्देश</button>
+        <span>·</span>
+        <button onclick="openGrievanceModal()" class="hover:text-white transition">📞 किसान हेल्पलाइन (1800-180-1551)</button>
+        <span>·</span>
+        <span class="text-emerald-400">🟢 NIC / PFMS Gateway: Active</span>
+      </div>
+    </div>
+  </footer>
 
   <!-- 6. SMS DRAWER -->
   <aside id="sms-drawer" class="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200 no-print">

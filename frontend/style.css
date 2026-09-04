@@ -112,10 +112,20 @@ body {
 }
 
 /* ================= LEAFLET GIS STYLES & MARKERS ================= */
+#farmer-gis-map, #admin-gis-map {
+  height: 340px !important;
+  min-height: 280px !important;
+  width: 100% !important;
+  display: block !important;
+  position: relative;
+}
+
 .leaflet-container {
   font-family: 'Plus Jakarta Sans', sans-serif !important;
   z-index: 10 !important;
   border-radius: 16px;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .custom-mandi-marker {

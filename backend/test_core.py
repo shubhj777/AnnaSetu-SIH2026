@@ -239,6 +239,76 @@ class TestKisanQueueCore(unittest.TestCase):
             self.assertTrue(29.0 <= c["lat"] <= 30.5)
             self.assertTrue(76.0 <= c["lng"] <= 77.5)
 
+    def test_10_gate_entry_registration_and_pass(self):
+        """Verify gate entry registration, official GE number generation, ARRIVED status transition, and SMS."""
+        # Book a test slot
+        today_str = date.today().isoformat()
+        req_data = {
+            "centre_id": "centre-a",
+            "time_window": "11:00 - 12:00",
+            "date": today_str,
+            "farmer": {
+                "name": "Kuldeep Singh",
+                "mobile": "9812444333",
+                "farmer_id": "FID-HR-44332"
+            },
+            "crop": {"crop_type": "Wheat (गेहूँ)", "estimated_quantity_quintal": 60.0}
+        }
+        b = db.create_booking(req_data)
+        token_no = b["token_number"]
+
+        # Register Gate Entry
+        ge_res = db.register_gate_entry(
+            booking_id_or_token=token_no,
+            gate_number="Gate-2",
+            vehicle_number="HR-05-AB-9988",
+            driver_name="Kuldeep Singh",
+            operator_id="usr-op-karnal"
+        )
+        self.assertTrue(ge_res["success"])
+        self.assertTrue(ge_res["gate_entry_number"].startswith("GE-A-"))
+        self.assertEqual(ge_res["booking"]["status"], "ARRIVED")
+        self.assertEqual(ge_res["booking"]["gate_entry_id"], ge_res["gate_entry_number"])
+
+        # Check Gate Entry in notifications
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM notifications WHERE booking_id = ? AND event_type = 'GATE_ARRIVAL'", (b["id"],))
+            sms = cursor.fetchone()
+            self.assertIsNotNone(sms)
+
+    def test_11_crop_centres_availability_and_recommendation(self):
+        """Verify multi-crop availability query, load calculation, and best option recommendation."""
+        res = db.get_crop_centres_availability(crop_type="Wheat (गेहूँ)")
+        self.assertEqual(res["status"], "success")
+        self.assertGreaterEqual(res["total_centres"], 4)
+        self.assertIn("best_option", res)
+        best = res["best_option"]
+        self.assertIn("centre_id", best)
+        self.assertIn("reason", best)
+        self.assertLessEqual(best["load_percentage"], 100)
+
+    def test_12_daily_centre_schedule(self):
+        """Verify daily procurement schedule answers 'Where & when can I sell my crop?'."""
+        res = db.get_daily_centre_schedule()
+        self.assertEqual(res["status"], "success")
+        self.assertGreaterEqual(res["total_centres"], 4)
+        for s in res["schedules"]:
+            self.assertIn("centre_name", s)
+            self.assertIn("operating_hours", s)
+            self.assertIn("crops_scheduled", s)
+            self.assertGreater(len(s["crops_scheduled"]), 0)
+
+    def test_13_operator_queue_retrieval(self):
+        """Verify operator terminal retrieves active queue sorted by operational stage."""
+        queue = db.get_operator_queue("centre-a")
+        self.assertIsInstance(queue, list)
+        self.assertGreaterEqual(len(queue), 1)
+        for item in queue:
+            self.assertIn("token_number", item)
+            self.assertIn("status", item)
+            self.assertIn("farmer_name", item)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -208,6 +208,16 @@ def get_procurement_centres():
     return {"status": "success", "count": len(centres), "data": centres}
 
 
+@app.get("/api/centres/daily-schedule")
+def get_centre_daily_schedule(date: Optional[str] = None):
+    """
+    Returns daily crop-wise schedule and operational hours for each procurement centre.
+    Answers: 'आज किस केंद्र पर कौन सी फसल ली जा रही है?'
+    """
+    data = db.get_daily_centre_schedule(target_date=date)
+    return data
+
+
 @app.get("/api/centres/{centre_id}")
 def get_centre_detail(centre_id: str):
     centre = db.get_centre(centre_id)
@@ -221,6 +231,17 @@ def get_centre_slots(centre_id: str, booking_date: Optional[str] = None):
     """Retrieve slot availability for a specified centre and date."""
     slots = db.get_slots(centre_id, booking_date)
     return {"status": "success", "centre_id": centre_id, "date": booking_date or date.today().isoformat(), "data": slots}
+
+
+@app.get("/api/availability/crop-centres")
+def get_crop_centres_availability(crop_type: Optional[str] = None, date: Optional[str] = None):
+    """
+    Returns live multi-crop procurement availability across all centres with
+    congestion levels, waiting times, open slots, and algorithmic Best Available Option recommendation.
+    Answers: 'Where and when can I sell my crop?'
+    """
+    data = db.get_crop_centres_availability(crop_type=crop_type, target_date=date)
+    return data
 
 
 # -------------------------------------------------------------
@@ -303,6 +324,33 @@ def recover_missed_slot(token_number: str, payload: Optional[Dict[str, Any]] = N
         "message": f"Slot recovered and rescheduled successfully to {booking.get('display_time_window', booking['time_window'])}",
         "data": booking
     }
+
+
+@app.post("/api/gate-entry/register")
+def register_gate_entry(payload: Dict[str, Any], request: Request):
+    """
+    Registers farmer vehicle physical arrival at Mandi Gate,
+    allocates official Gate Pass (GE-{centre}-{date}-{seq}),
+    marks status as ARRIVED / IN_QUEUE, and dispatches Gate Entry SMS.
+    """
+    token_or_id = payload.get("token_number") or payload.get("booking_id")
+    if not token_or_id:
+        raise HTTPException(status_code=400, detail="Either token_number or booking_id is required.")
+
+    current_user = get_current_user_optional(request)
+    op_id = (current_user.get("id") if current_user else None) or payload.get("operator_id", "usr-operator")
+
+    res = db.register_gate_entry(
+        booking_id_or_token=token_or_id,
+        gate_number=payload.get("gate_number", "Gate-1"),
+        vehicle_number=payload.get("vehicle_number"),
+        driver_name=payload.get("driver_name"),
+        operator_id=op_id,
+        notes=payload.get("notes")
+    )
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("message", "Gate entry registration failed"))
+    return res
 
 
 # -------------------------------------------------------------
@@ -494,6 +542,16 @@ def perform_operator_action(payload: Dict[str, Any]):
             return {"status": "success", "message": "Broadcast alert sent to all farmers."}
 
     return {"status": "error", "message": "Invalid operator action"}
+
+
+@app.get("/api/operator/queue/{centre_id}")
+def get_operator_queue(centre_id: str, status: Optional[str] = None):
+    """
+    Returns real-time in-queue farmer bookings for a specific Mandi centre terminal,
+    including gate entry status, weighbridge records, and quality assays.
+    """
+    queue = db.get_operator_queue(centre_id, status_filter=status)
+    return {"status": "success", "centre_id": centre_id, "count": len(queue), "data": queue}
 
 
 # -------------------------------------------------------------

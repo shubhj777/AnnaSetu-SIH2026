@@ -154,7 +154,27 @@ def init_db():
             procured_at TEXT,
             lat REAL CHECK(lat IS NULL OR (lat >= -90.0 AND lat <= 90.0)),
             lng REAL CHECK(lng IS NULL OR (lng >= -180.0 AND lng <= 180.0)),
-            qr_payload TEXT
+            qr_payload TEXT,
+            gate_entry_id TEXT,
+            gate_number TEXT
+        );
+        """)
+
+        # 4b. Gate Entries Table (Arrival Registration & Gate Pass)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS gate_entries (
+            id TEXT PRIMARY KEY,
+            gate_entry_number TEXT UNIQUE NOT NULL,
+            booking_id TEXT NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+            token_number TEXT NOT NULL,
+            centre_id TEXT NOT NULL REFERENCES procurement_centres(id),
+            gate_number TEXT NOT NULL DEFAULT 'Gate-1',
+            vehicle_number TEXT,
+            driver_name TEXT,
+            entry_time TEXT NOT NULL,
+            operator_id TEXT,
+            status TEXT NOT NULL DEFAULT 'IN_QUEUE',
+            notes TEXT
         );
         """)
 
@@ -296,3 +316,14 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_mobile ON notifications(recipient_mobile);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_crop_submissions_user ON crop_submissions(farmer_user_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gate_entries_booking ON gate_entries(booking_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gate_entries_centre ON gate_entries(centre_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gate_entries_number ON gate_entries(gate_entry_number);")
+
+        # Column migrations for existing databases
+        cursor.execute("PRAGMA table_info(bookings);")
+        booking_cols = [c[1] for c in cursor.fetchall()]
+        if "gate_entry_id" not in booking_cols:
+            cursor.execute("ALTER TABLE bookings ADD COLUMN gate_entry_id TEXT;")
+        if "gate_number" not in booking_cols:
+            cursor.execute("ALTER TABLE bookings ADD COLUMN gate_number TEXT;")
