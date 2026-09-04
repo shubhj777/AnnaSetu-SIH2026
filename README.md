@@ -81,3 +81,4 @@ Go to your GitHub Repository Settings → Pages → Select `/frontend` as the so
 | `POST` | `/api/operator/action` | Perform operator workflows (Arrived, Weighing, Quality, DBT) |
 | `GET` | `/api/admin/metrics` | District-wide procurement analytics and load balancing suggestions |
 | `GET` | `/api/sms_logs` | Retrieve simulated government SMS logs |
+
