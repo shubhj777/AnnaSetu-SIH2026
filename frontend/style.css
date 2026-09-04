@@ -1,4 +1,4 @@
-/* KisanQueue — Simplified Stylesheet */
+/* KisanQueue — Enhanced Stylesheet */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap');
 
 :root {
@@ -23,9 +23,15 @@ body {
     linear-gradient(180deg, rgba(6,78,59,0.55) 0%, rgba(240,253,244,0.55) 55%, rgba(241,245,249,0.85) 100%),
     url('https://images.unsplash.com/photo-1607460694867-af0c6d6f2c52?fm=jpg&q=80&w=2400&auto=format&fit=crop') center top / cover no-repeat fixed;
   background-attachment: fixed;
+  padding-bottom: 60px; /* Space for bottom nav on mobile */
 }
 
-/* Kept as an empty hook (no floating blobs on the photo background) */
+@media (min-width: 768px) {
+  body {
+    padding-bottom: 0;
+  }
+}
+
 .bg-decor { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 
 .font-hindi { font-family: 'Tiro Devanagari Hindi', 'Plus Jakarta Sans', sans-serif; }
@@ -36,7 +42,7 @@ body {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(226, 232, 240, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.08);
 }
 
@@ -60,7 +66,7 @@ body {
 .token-card::before { left: -12px; border-right: 2px dashed #10b981; }
 .token-card::after { right: -12px; border-left: 2px dashed #10b981; }
 
-.step-item { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1; }
+.step-item { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1; cursor: pointer; }
 .step-item:not(:last-child)::after {
   content: ''; position: absolute; top: 18px; left: 50%; width: 100%; height: 3px; background: #e2e8f0; z-index: 1;
 }
@@ -77,10 +83,40 @@ body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* ROBUST PRINT STYLES */
 @media print {
-  body * { visibility: hidden; }
-  #printable-pass, #printable-pass * { visibility: visible; }
-  #printable-pass { position: absolute; left: 0; top: 0; width: 100%; border: 2px solid #000; padding: 20px; }
+  body {
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  header, footer, .gov-ribbon, #demo-menu, #sms-drawer, #toast-container, .mobile-bottom-nav,
+  #ai-recommend-banner, #view-operator, #view-admin, #view-auth, #booking-modal, #complaint-modal,
+  .no-print, main > *:not(.print-container) {
+    display: none !important;
+  }
+  #view-farmer, main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+  .print-container, #printable-pass, .token-card {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 500px !important;
+    margin: 20px auto !important;
+    border: 2px solid #000 !important;
+    padding: 20px !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    page-break-inside: avoid;
+  }
 }
 
 .auth-tab { transition: all .2s ease; }
+
+.bottom-nav-item.active {
+  color: #059669;
+  font-weight: 800;
+}
