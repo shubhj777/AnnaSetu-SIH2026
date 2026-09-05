@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" opacity="0.075">
+  <defs>
+    <!-- Subtle Farmland Contour Gradient -->
+    <linearGradient id="terraceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#d97706" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#78350f" stop-opacity="0.8"/>
+    </linearGradient>
+    
+    <!-- Stylized Wheat Ear Symbol -->
+    <g id="wheatEar">
+      <path d="M0,0 Q-4,-12 0,-24 Q4,-12 0,0" fill="none" stroke="#b45309" stroke-width="1.5"/>
+      <path d="M0,-6 Q-8,-10 -10,-18 Q-5,-16 0,-10" fill="#d97706" opacity="0.8"/>
+      <path d="M0,-6 Q8,-10 10,-18 Q5,-16 0,-10" fill="#ca8a04" opacity="0.8"/>
+      <path d="M0,-14 Q-8,-18 -10,-26 Q-5,-24 0,-18" fill="#d97706" opacity="0.8"/>
+      <path d="M0,-14 Q8,-18 10,-26 Q5,-24 0,-18" fill="#ca8a04" opacity="0.8"/>
+      <path d="M0,-22 Q-7,-25 -8,-32 Q-4,-30 0,-25" fill="#d97706" opacity="0.8"/>
+      <path d="M0,-22 Q7,-25 8,-32 Q4,-30 0,-25" fill="#ca8a04" opacity="0.8"/>
+      <line x1="0" y1="0" x2="0" y2="18" stroke="#78350f" stroke-width="1.2"/>
+    </g>
+  </defs>
+
+  <!-- Farmland Terrace Landscape Lines -->
+  <path d="M0,120 C150,90 350,150 600,100 L600,102 C350,152 150,92 0,122 Z" fill="url(#terraceGrad)"/>
+  <path d="M0,240 C180,210 380,280 600,230 L600,232 C380,282 180,212 0,242 Z" fill="url(#terraceGrad)"/>
+  <path d="M0,380 C200,340 400,420 600,360 L600,362 C400,422 200,342 0,382 Z" fill="url(#terraceGrad)"/>
+  <path d="M0,510 C160,480 360,540 600,490 L600,492 C360,542 160,482 0,512 Z" fill="url(#terraceGrad)"/>
+
+  <!-- Repeating Wheat Ear Motifs across Agricultural Landscape Grid -->
+  <use href="#wheatEar" x="80" y="70" transform="rotate(-8 80 70) scale(1.1)"/>
+  <use href="#wheatEar" x="220" y="160" transform="rotate(12 220 160) scale(0.95)"/>
+  <use href="#wheatEar" x="380" y="80" transform="rotate(-6 380 80) scale(1.05)"/>
+  <use href="#wheatEar" x="520" y="180" transform="rotate(10 520 180) scale(1)"/>
+
+  <use href="#wheatEar" x="120" y="310" transform="rotate(7 120 310) scale(1.1)"/>
+  <use href="#wheatEar" x="300" y="270" transform="rotate(-10 300 270) scale(1)"/>
+  <use href="#wheatEar" x="460" y="330" transform="rotate(8 460 330) scale(1.15)"/>
+
+  <use href="#wheatEar" x="70" y="460" transform="rotate(-9 70 460) scale(1.05)"/>
+  <use href="#wheatEar" x="240" y="440" transform="rotate(11 240 440) scale(0.9)"/>
+  <use href="#wheatEar" x="410" y="480" transform="rotate(-7 410 480) scale(1.1)"/>
+  <use href="#wheatEar" x="540" y="430" transform="rotate(14 540 430) scale(1)"/>
+</svg>
