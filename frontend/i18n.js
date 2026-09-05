@@ -1,12 +1,12 @@
 /**
- * KisanQueue — Multilingual i18n Translation Engine
- * Full Hindi & English + Core UI Punjabi, Marathi & Telugu.
+ * ANNASETU (अन्नसेतु) — Multilingual i18n Translation Engine
+ * Official National Procurement Platform (DFPD / Haryana Mandi Board Adherent)
  */
 
 const I18N_DATA = {
   hi: {
-    app_title: "KisanQueue (किसान कतार)",
-    app_subtitle: "स्मार्ट किसान खरीद एवं वास्तविक समय कतार प्रबंधन",
+    app_title: "ANNASETU (अन्नसेतु)",
+    app_subtitle: "अन्नसेतु — स्मार्ट कृषि खरीद एवं किसान कतार प्लेटफ़ॉर्म",
     role_farmer: "👨‍🌾 किसान",
     role_operator: "👨‍💼 ऑपरेटर",
     role_admin: "👨‍💻 प्रशासन",
@@ -64,8 +64,8 @@ const I18N_DATA = {
     run_ai_balancer_btn: "⚡ लोड बैलेंस विश्लेषण चलाएं"
   },
   en: {
-    app_title: "KisanQueue (Farmer Queue)",
-    app_subtitle: "Smart Farmer Procurement & Real-Time Queue Management",
+    app_title: "ANNASETU (Smart Agri-Procurement)",
+    app_subtitle: "Smart Agricultural Procurement & Farmer Queue Platform",
     role_farmer: "👨‍🌾 Farmer",
     role_operator: "👨‍💼 Operator",
     role_admin: "👨‍💻 Admin",
@@ -123,7 +123,7 @@ const I18N_DATA = {
     run_ai_balancer_btn: "⚡ Run Load Balance Analysis"
   },
   pa: {
-    app_title: "ਕਿਸਾਨ ਕਿਊ (KisanQueue)",
+    app_title: "ਅੰਨਸੇਤੂ (ANNASETU)",
     app_subtitle: "ਸਮਾਰਟ ਕਿਸਾਨ ਖਰੀਦ ਅਤੇ ਰੀਅਲ-ਟਾਈਮ ਕਤਾਰ ਪ੍ਰਬੰਧਨ",
     role_farmer: "👨‍🌾 ਕਿਸਾਨ",
     role_operator: "👨‍💼 ਆਪਰੇਟਰ",
@@ -155,7 +155,7 @@ const I18N_DATA = {
     share_btn: "📱 ਸ਼ੇਅਰ ਕਰੋ"
   },
   mr: {
-    app_title: "किसान रांग (KisanQueue)",
+    app_title: "अन्नसेतू (ANNASETU)",
     app_subtitle: "स्मार्ट शेतकरी खरेदी आणि रीअल-टाइम रांग व्यवस्थापन",
     role_farmer: "👨‍🌾 शेतकरी",
     role_operator: "👨‍💼 ऑपरेटर",
@@ -187,7 +187,7 @@ const I18N_DATA = {
     share_btn: "📱 शेअर करा"
   },
   te: {
-    app_title: "కిసాన్ క్యూ (KisanQueue)",
+    app_title: "అన్నసేతు (ANNASETU)",
     app_subtitle: "రైతు సేకరణ & రియల్-టైమ్ క్యూ నిర్వహణ",
     role_farmer: "👨‍🌾 రైతు",
     role_operator: "👨‍💼 ఆపరేటర్",

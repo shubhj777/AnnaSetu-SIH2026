@@ -1,5 +1,5 @@
 /**
- * KisanQueue (किसान कतार) — Frontend Application Engine
+ * ANNASETU (अन्नसेतु) — Smart Agricultural Procurement & Farmer Queue Platform
  * Dual-Mode Architecture: Live FastAPI backend + In-browser mock fallback.
  */
 
@@ -559,14 +559,14 @@ function setRole(roleName) {
   document.querySelectorAll(".role-tab-btn").forEach(b => {
     const active = b.dataset.role === roleName;
     b.className = active 
-      ? "role-tab-btn px-4 py-1.5 rounded-xl text-xs font-extrabold transition bg-emerald-700 text-white shadow flex items-center gap-1.5" 
-      : "role-tab-btn px-4 py-1.5 rounded-xl text-xs font-bold transition text-slate-700 hover:text-slate-900 flex items-center gap-1.5";
+      ? "role-tab-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs font-extrabold transition bg-amber-600 text-white shadow flex items-center gap-1.5 shrink-0" 
+      : "role-tab-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition text-amber-100 hover:text-white hover:bg-amber-800/80 flex items-center gap-1.5 shrink-0";
   });
   document.querySelectorAll(".role-tab-btn-m").forEach(b => {
     const active = b.dataset.role === roleName;
     b.className = active 
-      ? "role-tab-btn-m flex-1 py-1 text-center text-emerald-800 border-b-2 border-emerald-700 font-bold" 
-      : "role-tab-btn-m flex-1 py-1 text-center text-slate-500 border-b-2 border-transparent font-bold";
+      ? "role-tab-btn-m flex-1 py-1 text-center text-amber-300 border-b-2 border-amber-400 font-bold" 
+      : "role-tab-btn-m flex-1 py-1 text-center text-amber-100/60 border-b-2 border-transparent font-bold";
   });
   
   const fView = document.getElementById("view-farmer");
@@ -617,6 +617,33 @@ function showToast(msg, type = "info") {
   if (container) {
     container.appendChild(el);
     setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(() => el.remove(), 300); }, 3200);
+  }
+}
+
+function maskMobileNumber(mobile) {
+  if (!mobile) return "+91 ******0000";
+  const clean = String(mobile).replace(/\D/g, "");
+  const last4 = clean.length >= 4 ? clean.slice(-4) : clean.padStart(4, "0");
+  return `+91 ******${last4}`;
+}
+
+function displaySmsTelemetryToast(sms) {
+  if (!sms) return;
+  const masked = maskMobileNumber(sms.recipient);
+  const status = (sms.status || "").toUpperCase();
+  const mode = (sms.mode || "").toUpperCase();
+
+  if (status === "ACCEPTED" || status === "SENT") {
+    const ref = sms.reference ? ` (Ref: ${sms.reference})` : "";
+    showToast(`📱 SMS: ${status} to ${masked}${ref}`, "success");
+  } else if (status === "DEMO" || status === "SIMULATED" || mode === "DEMO") {
+    const ref = sms.reference ? ` (Ref: ${sms.reference})` : "";
+    showToast(`📱 SMS: DEMO — simulated local dispatch to ${masked}${ref}`, "info");
+  } else if (status === "FAILED") {
+    const reason = sms.failure_reason || "Provider error / credentials not configured";
+    showToast(`⚠️ SMS प्रेषण विफल: ${reason} (${masked})`, "warn");
+  } else {
+    showToast(`📱 SMS Telemetry: ${status} to ${masked}`, "info");
   }
 }
 
@@ -838,15 +865,15 @@ function renderDigitalPass() {
     <div class="official-pass-card p-5 space-y-4 shadow-md bg-white">
       <div class="flex justify-between items-center text-[10px] font-bold text-slate-600 border-b border-dashed border-slate-200 pb-2.5">
         <div class="flex items-center gap-1.5">
-          <span class="text-emerald-700">🇮🇳</span>
-          <span class="font-semibold text-slate-700">भारतीय खाद्य निगम / राज्य कृषि विपणन बोर्ड डिजिटल गेट पास</span>
+          <span class="text-amber-700">🇮🇳</span>
+          <span class="font-semibold text-slate-700">अन्नसेतु (ANNASETU) · डिजिटल किसान गेट पास · DFPD / FCI Adherent</span>
         </div>
         <span class="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-black text-[9px] border border-amber-300">★ OFFICIAL PASS ★</span>
       </div>
 
       <div class="flex justify-between items-center">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-2xl bg-emerald-800 text-white flex items-center justify-center text-2xl shadow">
+          <div class="w-12 h-12 rounded-2xl bg-amber-800 text-white flex items-center justify-center text-2xl shadow">
             🌾
           </div>
           <div>
@@ -857,7 +884,7 @@ function renderDigitalPass() {
         </div>
         <div class="text-right">
           <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">GATE PASS TOKEN</span>
-          <span id="pass-token-badge" class="text-3xl font-black text-emerald-800 block">${b.token_number || '#A-52'}</span>
+          <span id="pass-token-badge" class="text-3xl font-black text-amber-800 block">${b.token_number || '#A-52'}</span>
         </div>
       </div>
 
@@ -876,7 +903,7 @@ function renderDigitalPass() {
         </div>
         <div>
           <span class="text-slate-400 block font-bold text-[10px]">MSP Sanction Rate:</span>
-          <span class="font-bold text-emerald-800">₹2425 / Q <span class="text-slate-500 font-normal">(Est: ₹${estVal})</span></span>
+          <span class="font-bold text-amber-800">₹2425 / Q <span class="text-slate-500 font-normal">(Est: ₹${estVal})</span></span>
         </div>
       </div>
 
@@ -1457,7 +1484,7 @@ function triggerVoiceAnnouncement() {
 function sharePassWhatsApp() {
   if (!STATE.myBooking) return;
   const b = STATE.myBooking;
-  const text = encodeURIComponent(`🌾 KisanQueue Digital Gate Pass\nToken: ${b.token_number}\nFarmer: ${b.farmer_name}\nCentre: ${b.centre_name}\nSlot: ${b.display_time_window || b.time_window}\nCrop: ${b.crop_type} (${b.quantity_quintal}Q)`);
+  const text = encodeURIComponent(`🌾 ANNASETU (अन्नसेतु) Digital Gate Pass\nToken: ${b.token_number}\nFarmer: ${b.farmer_name}\nCentre: ${b.centre_name}\nSlot: ${b.display_time_window || b.time_window}\nCrop: ${b.crop_type} (${b.quantity_quintal}Q)`);
   window.open(`https://wa.me/?text=${text}`, "_blank");
 }
 
@@ -1552,14 +1579,31 @@ async function handleFormBookingSubmit(event) {
     const booking = res.data;
     STATE.myTokenNumber = booking.token_number;
     if (STATE.user) {
+      if (payload.farmer && payload.farmer.name) STATE.user.name = payload.farmer.name;
+      if (payload.farmer && payload.farmer.mobile) STATE.user.mobile = payload.farmer.mobile;
+      if (payload.farmer && payload.farmer.village) STATE.user.village = payload.farmer.village;
       STATE.user.tokenNumber = booking.token_number;
       const users = getUsers();
       const idx = users.findIndex(u => u.mobile === STATE.user.mobile);
       if (idx >= 0) { users[idx].tokenNumber = booking.token_number; saveUsers(users); }
       localStorage.setItem("kq_session", JSON.stringify(STATE.user));
+
+      const heroNameEl = document.getElementById("farmer-hero-name");
+      if (heroNameEl) heroNameEl.textContent = STATE.user.name;
+      const heroDetailsEl = document.getElementById("farmer-hero-details");
+      if (heroDetailsEl) {
+        heroDetailsEl.textContent = `गाँव: ${STATE.user.village} | किसान ID: ${booking.farmer_id || 'FID-HR-78921'} | फसल: ${booking.crop_type} (${booking.quantity_quintal} क्विंटल)`;
+      }
     }
     closeBookingModal();
+    // 1. Distinct Application Booking Notification
     showToast(`🎉 टोकन ${booking.token_number} बुक हो गया!`, "success");
+
+    // 2. Truthful SMS Dispatch Telemetry Status
+    if (res.sms) {
+      displaySmsTelemetryToast(res.sms);
+    }
+
     await refreshFarmerData();
     await loadCentres();
     refreshSmsLogs();
@@ -2380,11 +2424,14 @@ async function handleFarmerPaymentClick() {
     const payRef = (initRes.data && initRes.data.payment) ? initRes.data.payment.payment_reference : "PAY-REF-DEMO";
 
     // Step 2: Verify and Sanction
-    await api("/api/payments/verify", "POST", {
+    const verifyRes = await api("/api/payments/verify", "POST", {
       payment_reference: payRef
     });
 
-    showToast("✓ DBT भुगतान स्वीकृत! PFMS संदर्भ जारी एवं किसान को SMS भेजा गया।", "success");
+    showToast("✓ DBT भुगतान स्वीकृत! PFMS संदर्भ जारी किया गया।", "success");
+    if (verifyRes && verifyRes.sms) {
+      displaySmsTelemetryToast(verifyRes.sms);
+    }
     await refreshFarmerData(true);
     openReceiptModal(b.token_number);
   } catch (err) {
@@ -2848,21 +2895,23 @@ async function loadAdminNotificationLogs() {
             <tr>
               <td class="py-3 text-slate-500 font-mono text-[10px] whitespace-nowrap">${n.timestamp || n.created_at || 'Just now'}</td>
               <td>
-                <p class="font-black text-slate-900">${n.recipient_name || 'Farmer'} <span class="text-emerald-700 font-bold font-mono">(${n.token_number})</span></p>
-                <p class="text-[10px] text-slate-400 font-mono">${n.recipient_mobile}</p>
+                <p class="font-black text-slate-900">${n.recipient_name || 'Farmer'} <span class="text-amber-800 font-bold font-mono">(${n.token_number})</span></p>
+                <p class="text-[10px] text-slate-400 font-mono">${maskMobileNumber(n.recipient_mobile)}</p>
               </td>
               <td>
                 <p class="font-bold text-slate-700">${n.event_type || 'NOTIFICATION'}</p>
-                <span class="text-[10px] text-slate-400">NIC SMS Gateway</span>
+                <span class="text-[10px] text-slate-400">AnnaSetu SMS Gateway (${n.mode || 'DEMO'})</span>
               </td>
               <td>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${
-                  n.status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                  n.status === 'ACCEPTED' || n.status === 'SENT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                  n.status === 'DEMO' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
                   n.status === 'FAILED' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
-                  'bg-amber-100 text-amber-800 border border-amber-300'
+                  'bg-slate-100 text-slate-800 border border-slate-300'
                 }">
                   ${n.status}
                 </span>
+                ${n.provider_reference ? `<p class="text-[9px] text-slate-400 font-mono mt-0.5">${n.provider_reference}</p>` : ''}
               </td>
               <td class="max-w-xs truncate text-slate-600 font-medium" title="${n.message_text}">${n.message_text}</td>
               <td class="text-right">

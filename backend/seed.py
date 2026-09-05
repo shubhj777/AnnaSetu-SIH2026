@@ -503,38 +503,38 @@ def seed_database(force_reseed: bool = False):
             (
                 "SMS-260905-101", "BOOKING_CONFIRMATION", "BOOKING_CONFIRM_BK-KNL-2026-0881", "BK-KNL-2026-0881",
                 "9812345678", "Ramesh Kumar", "#A-52", "🌾 Slot Confirmed / स्लॉट पुष्टिकरण",
-                "KisanQueue: Your slot has been successfully booked. Token: #A-52 (Booking ID: BK-KNL-2026-0881). Date: Today, Time: 10:00 - 11:00 AM. Mandi: Centre A - Grain Market Karnal. Crop: Wheat (50.0 Q). Please arrive on time at Gate 1.",
-                "DELIVERED", "NIC-PUSH-88210", now_iso, now_iso, 0, "DEMO", None, 0
+                "AnnaSetu: Your slot has been successfully booked. Token: #A-52 (Booking ID: BK-KNL-2026-0881). Date: Today, Time: 10:00 - 11:00 AM. Mandi: Centre A - Grain Market Karnal. Crop: Wheat (50.0 Q). Please arrive on time at Gate 1.",
+                "DEMO", "DEMO-SMS-88210", now_iso, now_iso, 0, "DEMO", None, 0
             ),
             (
                 "SMS-260905-102", "QUEUE_ALERT", "QUEUE_ALERT_#A-52_37", "BK-KNL-2026-0881",
                 "9812345678", "Ramesh Kumar", "#A-52", "🔔 Queue Status Update",
                 "Centre A currently serving Token #A-37. You have 15 farmers ahead. Estimated wait time: 47 mins. You may wait comfortably at home or head towards Gate 1.",
-                "DELIVERED", "NIC-PUSH-88211", now_iso, now_iso, 0, "DEMO", None, 0
+                "DEMO", "DEMO-SMS-88211", now_iso, now_iso, 0, "DEMO", None, 0
             ),
             (
                 "SMS-260905-103", "BOOKING_CONFIRMATION", "BOOKING_CONFIRM_BK-NLK-2026-0914", "BK-NLK-2026-0914",
                 "9876543210", "Baldev Singh", "#B-19", "🌾 Slot Confirmed / स्लॉट पुष्टिकरण",
-                "KisanQueue: Your slot has been successfully booked. Token: #B-19. Date: Today, Time: 11:00 AM - 12:00 PM. Mandi: Centre B - Nilokheri Sub-Mandi. Crop: Paddy / Rice (65.0 Q).",
-                "DELIVERED", "NIC-PUSH-88212", now_iso, now_iso, 0, "DEMO", None, 0
+                "AnnaSetu: Your slot has been successfully booked. Token: #B-19. Date: Today, Time: 11:00 AM - 12:00 PM. Mandi: Centre B - Nilokheri Sub-Mandi. Crop: Paddy / Rice (65.0 Q).",
+                "DEMO", "DEMO-SMS-88212", now_iso, now_iso, 0, "DEMO", None, 0
             ),
             (
                 "SMS-260905-104", "ONE_HOUR_REMINDER", f"REMINDER_1HR_BK-NLK-2026-0914_{today_str}", "BK-NLK-2026-0914",
                 "9876543210", "Baldev Singh", "#B-19", "⏰ 1-Hour Slot Reminder / स्लॉट स्मरण",
-                "Reminder: Your KishanQueue slot #B-19 (ID: BK-NLK-2026-0914) is scheduled at 11:00 AM - 12:00 PM today at Centre B - Nilokheri Sub-Mandi. Please arrive at the assigned location on time.",
-                "DELIVERED", "NIC-PUSH-88213", now_iso, now_iso, 0, "DEMO", None, 0
+                "Reminder: Your AnnaSetu slot #B-19 (ID: BK-NLK-2026-0914) is scheduled at 11:00 AM - 12:00 PM today at Centre B - Nilokheri Sub-Mandi. Please arrive at the assigned location on time.",
+                "DEMO", "DEMO-SMS-88213", now_iso, now_iso, 0, "DEMO", None, 0
             ),
             (
                 "SMS-260905-105", "PAYMENT_CONFIRMATION", "PAYMENT_CONFIRM_PAY-KQ-2026-88219", "BK-KNL-2026-0740",
                 "9823456789", "Suresh Sharma", "#A-35", "💰 Payment Received / भुगतान प्राप्त",
-                "Payment received successfully for KishanQueue booking #A-35 (BK-KNL-2026-0740). Amount: ₹1,94,000.00. Payment Ref: PAY-KQ-2026-88219. PFMS Ref: GOV-AGRI-PFMS-77192. Funds credited to HDFC Bank A/c XXXXXX7721.",
-                "DELIVERED", "NIC-PUSH-88214", now_iso, now_iso, 0, "DEMO", None, 0
+                "Payment received successfully for AnnaSetu booking #A-35 (BK-KNL-2026-0740). Amount: ₹1,94,000.00. Payment Ref: PAY-KQ-2026-88219. PFMS Ref: GOV-AGRI-PFMS-77192. Funds credited to HDFC Bank A/c XXXXXX7721.",
+                "DEMO", "DEMO-SMS-88214", now_iso, now_iso, 0, "DEMO", None, 0
             ),
             (
                 "SMS-260905-106", "CROP_REJECTED", "CROP_DECISION_BK-IND-2026-0412_REJECTED", "BK-IND-2026-0412",
                 "9898765432", "Harpreet Kaur", "#C-08", "⚠️ Crop Rejected / फसल अस्वीकृत",
-                "Your crop submission for KishanQueue booking #C-08 has been REJECTED. Reason: Moisture content measured at 16.8% (maximum permissible limit 12.0%). Please sun-dry for 48 hours and re-book slot.",
-                "DELIVERED", "NIC-PUSH-88215", now_iso, now_iso, 0, "DEMO", None, 0
+                "Your crop submission for AnnaSetu booking #C-08 has been REJECTED. Reason: Moisture content measured at 16.8% (maximum permissible limit 12.0%). Please sun-dry for 48 hours and re-book slot.",
+                "DEMO", "DEMO-SMS-88215", now_iso, now_iso, 0, "DEMO", None, 0
             )
         ]
 

@@ -11,7 +11,7 @@ import re
 import json
 
 from database import get_db, row_to_dict, rows_to_list, init_db
-from notifications import NotificationService
+from notifications import NotificationService, normalize_indian_mobile
 
 
 def normalize_time_window(tw: str) -> str:
@@ -205,6 +205,12 @@ class DataStore:
             cursor.execute("SELECT * FROM gate_entries WHERE booking_id = ? ORDER BY entry_time DESC LIMIT 1", (booking["id"],))
             booking["gate_entry"] = row_to_dict(cursor.fetchone())
 
+            # Attach latest SMS dispatch record
+            cursor.execute("SELECT * FROM notifications WHERE booking_id = ? ORDER BY sent_at DESC LIMIT 1", (booking["id"],))
+            notif = row_to_dict(cursor.fetchone())
+            if notif:
+                booking["sms_dispatch"] = notif
+
             return booking
 
     def list_bookings(
@@ -266,11 +272,22 @@ class DataStore:
         display_window = format_display_time_window(canonical_window)
         b_date = req_dict.get("date", date.today().isoformat())
 
-        farmer_data = req_dict.get("farmer", {})
-        farmer_name = farmer_data.get("name") or (user.get("name") if user else "Farmer")
-        farmer_mobile = farmer_data.get("mobile") or (user.get("mobile") if user else "9812345678")
-        farmer_id = farmer_data.get("farmer_id") or (user.get("farmer_id") if user else f"FID-HR-{uuid.uuid4().hex[:5].upper()}")
-        user_id = user.get("id") if user else farmer_data.get("id")
+        farmer_data = req_dict.get("farmer") or {}
+        farmer_name = (farmer_data.get("name") or req_dict.get("farmer_name") or (user.get("name") if user else "Farmer")).strip()
+        
+        # Dynamically extract and normalize the recipient farmer mobile number
+        raw_mobile = farmer_data.get("mobile") or req_dict.get("farmer_mobile") or req_dict.get("mobile") or (user.get("mobile") if user else None)
+        if not raw_mobile:
+            raise ValueError("Farmer mobile number is required.")
+        farmer_mobile = normalize_indian_mobile(raw_mobile)
+
+        if user and user.get("mobile") == farmer_mobile:
+            farmer_id = user.get("farmer_id") or f"FID-HR-{uuid.uuid4().hex[:5].upper()}"
+            user_id = user.get("id")
+        else:
+            # Different farmer mobile entered in the booking form
+            farmer_id = farmer_data.get("farmer_id") or req_dict.get("farmer_id") or f"FID-HR-{uuid.uuid4().hex[:5].upper()}"
+            user_id = None
 
         with get_db() as conn:
             cursor = conn.cursor()
@@ -354,7 +371,7 @@ class DataStore:
                 req_dict.get("vehicle_type", "Tractor Trolley"),
                 req_dict.get("vehicle_number", f"HR-05-{uuid.uuid4().hex[:4].upper()}"),
                 now_iso, farmer_data.get("lat") or centre["lat"], farmer_data.get("lng") or centre["lng"],
-                f"KISANQUEUE|TOKEN:{token_no}|FARMER:{farmer_name}|CENTRE:{centre['name']}|QTY:{qty}Q"
+                f"ANNASETU|TOKEN:{token_no}|FARMER:{farmer_name}|CENTRE:{centre['name']}|QTY:{qty}Q"
             ))
 
             # Increment slot booked count
@@ -385,7 +402,8 @@ class DataStore:
 
         # Dispatch Booking Confirmation SMS
         if booking:
-            NotificationService.send_booking_confirmation(booking)
+            sms_dispatch = NotificationService.send_booking_confirmation(booking)
+            booking["sms_dispatch"] = sms_dispatch
 
         return booking
 
@@ -506,7 +524,7 @@ class DataStore:
             recipient_name=booking["farmer_name"],
             token_number=norm,
             title="🔄 Missed Slot Recovered / स्लॉट पुनर्बहाल",
-            message_text=f"KisanQueue: आपका टोकन {norm} सफलतापूर्वक नए समय {display_win} पर री-शेड्यूल कर दिया गया है।",
+            message_text=f"AnnaSetu: आपका टोकन {norm} सफलतापूर्वक नए समय {display_win} पर री-शेड्यूल कर दिया गया है।",
             booking_id=booking["id"]
         )
 
@@ -691,7 +709,7 @@ class DataStore:
             recipient_name=booking["farmer_name"],
             token_number=token_no,
             title="🚚 Gate Entry Registered / गेट प्रवेश दर्ज",
-            message_text=f"[DEMO SMS] KisanQueue: गेट प्रवेश दर्ज! टोकन {token_no}, गेट पास {ge_number}, {gate_number}। कृपया वेइंग लेन में प्रतीक्षा करें।",
+            message_text=f"AnnaSetu: गेट प्रवेश दर्ज! टोकन {token_no}, गेट पास {ge_number}, {gate_number}। कृपया वेइंग लेन में प्रतीक्षा करें।",
             booking_id=booking["id"]
         )
 

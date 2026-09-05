@@ -112,8 +112,23 @@ class PaymentService:
                 raise HTTPException(status_code=404, detail="Payment reference not found")
 
             if payment["status"] == "SUCCESSFUL":
-                # Already verified, return existing receipt
-                return PaymentService.get_payment_receipt(payment["id"])
+                # Already verified, return existing receipt with associated notification telemetry
+                receipt_res = PaymentService.get_payment_receipt(payment["id"])
+                cursor.execute("""
+                    SELECT * FROM notifications
+                    WHERE (booking_id = ? OR idempotency_key LIKE ?) AND event_type = 'PAYMENT_CONFIRMATION'
+                    ORDER BY sent_at DESC LIMIT 1
+                """, (payment["booking_id"], f"%{payment['payment_reference']}%"))
+                notif = row_to_dict(cursor.fetchone())
+                if notif:
+                    receipt_res["sms"] = {
+                        "status": notif.get("status") or notif.get("sms_status") or "DEMO",
+                        "mode": notif.get("mode", "DEMO"),
+                        "recipient": notif.get("recipient_mobile"),
+                        "reference": notif.get("provider_reference"),
+                        "failure_reason": notif.get("failure_reason")
+                    }
+                return receipt_res
 
             now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             tx_suffix = uuid.uuid4().hex[:8].upper()
@@ -153,10 +168,20 @@ class PaymentService:
             ))
 
         # Send Payment Confirmation SMS after backend verification
+        sms_record = None
         if booking:
-            NotificationService.send_payment_confirmation(booking, updated_payment)
+            sms_record = NotificationService.send_payment_confirmation(booking, updated_payment)
 
-        return PaymentService.get_payment_receipt(updated_payment["id"])
+        receipt_res = PaymentService.get_payment_receipt(updated_payment["id"])
+        if sms_record:
+            receipt_res["sms"] = {
+                "status": sms_record.get("status") or sms_record.get("sms_status") or "DEMO",
+                "mode": sms_record.get("mode", "DEMO"),
+                "recipient": sms_record.get("recipient_mobile") or booking.get("farmer_mobile"),
+                "reference": sms_record.get("provider_reference"),
+                "failure_reason": sms_record.get("failure_reason")
+            }
+        return receipt_res
 
     @staticmethod
     def get_payment_receipt(payment_id_or_ref: str) -> Dict[str, Any]:

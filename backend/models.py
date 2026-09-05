@@ -227,8 +227,8 @@ class SMSAlert(BaseModel):
     title: str
     message_text: str
     timestamp: str
-    status: Optional[str] = "DELIVERED"
-    sent_via: str = "KisanSMS-GovPush"
+    status: Optional[str] = "DEMO"
+    sent_via: str = "AnnaSetu-SMS-Gateway"
 
 
 # -------------------------------------------------------------

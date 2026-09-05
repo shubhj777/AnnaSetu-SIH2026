@@ -1,5 +1,5 @@
 /**
- * KisanQueue — Standalone Mock Data & In-Browser Fallback Engine
+ * ANNASETU (अन्नसेतु) — Standalone Mock Data & In-Browser Fallback Engine
  * Provides realistic mandi data, route guidance, complaints, and simulated responses.
  */
 
@@ -156,7 +156,7 @@ const MockData = (() => {
       vehicle_number: "HR-05-AB-7821",
       status: "BOOKED",
       created_at: new Date().toLocaleString(),
-      qr_payload: "KISANQUEUE|TOKEN:#A-52|FARMER:Ramesh Kumar|CENTRE:Centre A|CROP:Wheat|QTY:50Q",
+      qr_payload: "ANNASETU|TOKEN:#A-52|FARMER:Ramesh Kumar|CENTRE:Centre A|CROP:Wheat|QTY:50Q",
       estimated_arrival: "10:15 AM",
       estimated_wait_time_minutes: 47,
       weighbridge: null,
@@ -262,7 +262,7 @@ const MockData = (() => {
         vehicle_number: `HR-05-AB-${Math.floor(1000 + Math.random() * 9000)}`,
         status: "BOOKED",
         created_at: new Date().toLocaleString(),
-        qr_payload: `KISANQUEUE|TOKEN:${tokenNo}|FARMER:${payload.farmer?.name}|CENTRE:${c.name}|QTY:${qty}Q`,
+        qr_payload: `ANNASETU|TOKEN:${tokenNo}|FARMER:${payload.farmer?.name}|CENTRE:${c.name}|QTY:${qty}Q`,
         estimated_arrival: "10:15 AM",
         estimated_wait_time_minutes: 35,
         weighbridge: null,
@@ -285,10 +285,10 @@ const MockData = (() => {
         token_number: tokenNo,
         category: "BOOKING_CONFIRMATION",
         title: "🌾 Booking Confirmed / टोकन पुष्टिकरण",
-        message_text: `KisanQueue: आपका टोकन ${tokenNo} बुक हो गया है (${c.name})।`,
+        message_text: `AnnaSetu: आपका टोकन ${tokenNo} बुक हो गया है (${c.name})।`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         is_read: false,
-        sent_via: "KisanSMS-GovPush"
+        sent_via: "AnnaSetu-SMS-GovPush"
       });
 
       return { status: "success", message: "Slot booked successfully", data: newBooking };
@@ -313,10 +313,10 @@ const MockData = (() => {
         token_number: key,
         category: "SLOT_RESCHEDULE",
         title: "🔄 Missed Slot Recovered",
-        message_text: `KisanQueue: आपका टोकन ${key} नए समय ${b.display_time_window} पर री-शेड्यूल किया गया।`,
+        message_text: `AnnaSetu: आपका टोकन ${key} नए समय ${b.display_time_window} पर री-शेड्यूल किया गया।`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         is_read: false,
-        sent_via: "KisanSMS-GovPush"
+        sent_via: "AnnaSetu-SMS-GovPush"
       });
 
       return { status: "success", message: "Slot recovered dynamically", data: b };

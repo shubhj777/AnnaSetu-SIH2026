@@ -1,11 +1,16 @@
-/* KisanQueue — Exact Pixel-Perfect Design & Interactive GIS Extensions */
+/* AnnaSetu (अन्नसेतु) — Sophisticated Agricultural Theme & Interactive UI */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap');
 
 :root {
-  --primary-mandi: #044e39;
-  --primary-light: #0d7a59;
-  --primary-badge: #10b981;
-  --amber-accent: #f59e0b;
+  --primary-wheat: #b45309;
+  --primary-gold: #d97706;
+  --primary-soil: #78350f;
+  --mustard-accent: #ca8a04;
+  --navy-deep: #0f172a;
+  --navy-card: #1e293b;
+  --cream-bg: #fbf8f1;
+  --cream-card: rgba(255, 255, 255, 0.94);
+  --border-warm: #e7dfd5;
 }
 
 * { box-sizing: border-box; }
@@ -17,7 +22,14 @@ html, body {
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #1e293b;
-  background-color: #f3f6f4;
+  background-color: #fbf8f1;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(254, 240, 138, 0.35) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 90%, rgba(253, 230, 138, 0.25) 0%, transparent 45%),
+    linear-gradient(180deg, rgba(251, 248, 241, 0.93) 0%, rgba(252, 249, 244, 0.96) 100%),
+    url('assets/agri_bg.svg');
+  background-repeat: repeat;
+  background-attachment: fixed;
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
@@ -25,29 +37,36 @@ body {
 
 .font-hindi { font-family: 'Tiro Devanagari Hindi', 'Plus Jakarta Sans', sans-serif; }
 
-.gov-ribbon { height: 3px; background: linear-gradient(90deg, #ff9933 33.3%, #ffffff 33.3% 66.6%, #138808 66.6%); }
+/* Official Government Tricolor Ribbon */
+.gov-ribbon {
+  height: 3.5px;
+  background: linear-gradient(90deg, #ff9933 33.33%, #ffffff 33.33% 66.66%, #138808 66.66%);
+}
 
 .ticker-bar {
-  background: #063c2c;
-  color: #d1fae5;
+  background: #0f172a;
+  color: #fef08a;
   font-size: 11px;
   font-weight: 700;
   padding: 6px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .glass-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid #e7dfd5;
   border-radius: 20px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px -2px rgba(120, 53, 15, 0.05);
 }
 
 .hero-banner {
-  background: linear-gradient(90deg, #064e3b 0%, #065f46 60%, #047857 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 45%, #78350f 85%, #b45309 100%);
   border-radius: 24px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
 }
 
 .recommend-banner {
@@ -58,18 +77,18 @@ body {
 
 .official-pass-card {
   background: #ffffff;
-  border: 2px dashed #34d399;
+  border: 2px dashed #d97706;
   border-radius: 24px;
   position: relative;
   overflow: hidden;
 }
 
 .official-pass-card::before, .official-pass-card::after {
-  content: ''; position: absolute; width: 22px; height: 22px; background: #f3f6f4; border-radius: 50%;
+  content: ''; position: absolute; width: 22px; height: 22px; background: #fbf8f1; border-radius: 50%;
   top: 50%; transform: translateY(-50%);
 }
-.official-pass-card::before { left: -12px; border-right: 2px dashed #34d399; }
-.official-pass-card::after { right: -12px; border-left: 2px dashed #34d399; }
+.official-pass-card::before { left: -12px; border-right: 2px dashed #d97706; }
+.official-pass-card::after { right: -12px; border-left: 2px dashed #d97706; }
 
 .live-controls-bar {
   background: #0f172a;
@@ -80,13 +99,17 @@ body {
 .step-item:not(:last-child)::after {
   content: ''; position: absolute; top: 18px; left: 50%; width: 100%; height: 3px; background: #e2e8f0; z-index: 1;
 }
-.step-item.completed:not(:last-child)::after { background: #10b981; }
+.step-item.completed:not(:last-child)::after { background: #d97706; }
 .step-circle {
   width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   background: #fff; border: 3px solid #cbd5e1; z-index: 2; font-weight: 700; font-size: 13px; transition: all .3s ease;
 }
-.step-item.completed .step-circle { background: #10b981; border-color: #059669; color: #fff; box-shadow: 0 0 12px rgba(16,185,129,.4); }
-.step-item.active .step-circle { background: #fef3c7; border-color: #d97706; color: #92400e; animation: pulse 2s infinite; }
+.step-item.completed .step-circle {
+  background: #d97706; border-color: #b45309; color: #fff; box-shadow: 0 0 12px rgba(217, 119, 6, 0.35);
+}
+.step-item.active .step-circle {
+  background: #fef3c7; border-color: #d97706; color: #92400e; animation: pulse 2s infinite;
+}
 
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
@@ -99,7 +122,7 @@ body {
   transition: all 0.2s ease;
 }
 .lang-btn.active {
-  background-color: #047857;
+  background-color: #b45309;
   color: #ffffff;
 }
 .lang-btn:not(.active) {
@@ -107,8 +130,8 @@ body {
   color: #64748b;
 }
 .lang-btn:not(.active):hover {
-  background-color: #f1f5f9;
-  color: #0f172a;
+  background-color: #fef3c7;
+  color: #78350f;
 }
 
 /* ================= LEAFLET GIS STYLES & MARKERS ================= */
@@ -146,7 +169,7 @@ body {
 }
 
 .custom-mandi-marker.green {
-  background: linear-gradient(135deg, #10b981, #047857);
+  background: linear-gradient(135deg, #16a34a, #15803d);
 }
 .custom-mandi-marker.yellow {
   background: linear-gradient(135deg, #f59e0b, #b45309);
@@ -157,14 +180,14 @@ body {
 }
 
 .custom-farmer-marker {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, #0284c7, #0369a1);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
   color: white;
-  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.5);
   border: 2px solid white;
 }
 

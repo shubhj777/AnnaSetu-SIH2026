@@ -25,7 +25,7 @@ def main():
     url = f"http://{host}:{port}"
     
     print("=" * 70)
-    print("KISANQUEUE (किसान कतार) - SMART FARMER PROCUREMENT & QUEUE PLATFORM")
+    print("ANNASETU (अन्नसेतु) - SMART AGRICULTURAL PROCUREMENT & FARMER QUEUE PLATFORM")
     print("=" * 70)
     print(f"Starting server on {url}")
     print("Opening browser automatically...")

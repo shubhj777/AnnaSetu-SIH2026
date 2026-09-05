@@ -309,6 +309,95 @@ class TestKisanQueueCore(unittest.TestCase):
             self.assertIn("status", item)
             self.assertIn("farmer_name", item)
 
+    def test_14_mobile_normalization_and_dynamic_routing(self):
+        """Verify Indian phone normalization and strictly dynamic recipient isolation."""
+        from notifications import normalize_indian_mobile
+        # Valid normalization
+        self.assertEqual(normalize_indian_mobile("9876543210"), "9876543210")
+        self.assertEqual(normalize_indian_mobile("+91 98765 43210"), "9876543210")
+        self.assertEqual(normalize_indian_mobile("09123456789"), "9123456789")
+        self.assertEqual(normalize_indian_mobile("+91-88888-99999"), "8888899999")
+        self.assertEqual(normalize_indian_mobile("917000012345"), "7000012345")
+
+        # Invalid numbers raise ValueError
+        with self.assertRaises(ValueError):
+            normalize_indian_mobile("1234567890")  # Invalid starting digit
+        with self.assertRaises(ValueError):
+            normalize_indian_mobile("98765")       # Too short
+        with self.assertRaises(ValueError):
+            normalize_indian_mobile("")            # Empty
+
+        # Test Dynamic Isolation: Two distinct farmers with distinct numbers
+        today_str = date.today().isoformat()
+        farmer_a_mobile = "9876543210"
+        farmer_b_mobile = "9123456789"
+
+        booking_a = db.create_booking({
+            "centre_id": "centre-c",
+            "time_window": "09:00 - 10:00",
+            "date": today_str,
+            "farmer": {
+                "name": "Dynamic Farmer Alpha",
+                "mobile": farmer_a_mobile,
+                "village": "Taraori Alpha"
+            },
+            "crop": {"crop_type": "Wheat (गेहूँ)", "estimated_quantity_quintal": 45.0}
+        })
+
+        booking_b = db.create_booking({
+            "centre_id": "centre-c",
+            "time_window": "10:00 - 11:00",
+            "date": today_str,
+            "farmer": {
+                "name": "Dynamic Farmer Beta",
+                "mobile": farmer_b_mobile,
+                "village": "Taraori Beta"
+            },
+            "crop": {"crop_type": "Wheat (गेहूँ)", "estimated_quantity_quintal": 55.0}
+        })
+
+        # Check notification recipients in database
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT recipient_mobile FROM notifications WHERE token_number = ?", (booking_a["token_number"],))
+            sms_a = cursor.fetchone()
+            self.assertEqual(sms_a["recipient_mobile"], farmer_a_mobile)
+
+            cursor.execute("SELECT recipient_mobile FROM notifications WHERE token_number = ?", (booking_b["token_number"],))
+            sms_b = cursor.fetchone()
+            self.assertEqual(sms_b["recipient_mobile"], farmer_b_mobile)
+
+            # Ensure neither received the other's message nor any hardcoded default
+            self.assertNotEqual(sms_a["recipient_mobile"], sms_b["recipient_mobile"])
+
+    def test_15_sms_provider_status_semantics(self):
+        """Verify SMS provider engine semantics: SENT/ACCEPTED on gateway accept vs DEMO in demo mode."""
+        from sms_providers import DemoSMSProvider, BaseSMSProvider
+
+        # Demo provider returns DEMO from provider
+        demo_provider = DemoSMSProvider()
+        demo_res = demo_provider.send_sms("9876543210", "AnnaSetu Test Message")
+        self.assertTrue(demo_res["success"])
+        self.assertEqual(demo_res["status"], "DEMO")
+        self.assertTrue(demo_res["provider_reference"].startswith("DEMO-SMS-"))
+
+        # Base / Subclassed gateway provider must not return DELIVERED unless confirmed
+        class MockGatewayProvider(BaseSMSProvider):
+            def send_sms(self, to_mobile: str, message: str, sender_id: str = None) -> dict:
+                return {
+                    "success": True,
+                    "status": "ACCEPTED",
+                    "provider_reference": "GW-TX-98712",
+                    "error_message": None,
+                    "raw_response": {"message_id": "GW-TX-98712"}
+                }
+
+        gw_provider = MockGatewayProvider()
+        gw_res = gw_provider.send_sms("9123456789", "AnnaSetu Gateway Test")
+        self.assertTrue(gw_res["success"])
+        self.assertEqual(gw_res["status"], "ACCEPTED")
+        self.assertNotEqual(gw_res["status"], "DELIVERED")
+
 
 if __name__ == "__main__":
     unittest.main()

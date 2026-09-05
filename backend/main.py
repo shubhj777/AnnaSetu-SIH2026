@@ -1,6 +1,6 @@
 """
-KisanQueue (किसान कतार) — FastAPI Backend Server
-Smart Farmer Procurement & Real-Time Queue Management Platform
+ANNASETU (अन्नसेतु) — FastAPI Backend Server
+Integrated Agricultural Procurement, Queue Radar, Multilingual SMS, and DBT Verification.
 Provides comprehensive REST APIs for Authentication, Slot Booking, Live Queue Telemetry,
 Mandi Operator Terminal, Payments, Crop Evaluation, GIS, and District Admin Analytics.
 """
@@ -48,9 +48,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="KisanQueue API",
-    description="Smart Farmer Procurement & Real-Time Queue Management Platform",
-    version="2.5.0",
+    title="AnnaSetu API",
+    description="Smart Agricultural Procurement & Farmer Queue Platform (अन्नसेतु)",
+    version="3.0.0",
     lifespan=lifespan
 )
 
@@ -253,7 +253,19 @@ def create_booking(payload: Dict[str, Any], request: Request):
     try:
         current_user = get_current_user_optional(request)
         booking = db.create_booking(payload, user=current_user)
-        return {"status": "success", "message": "Slot booked successfully", "data": booking}
+        sms_info = booking.get("sms_dispatch") or {}
+        return {
+            "status": "success",
+            "message": "Slot booked successfully",
+            "data": booking,
+            "sms": {
+                "status": sms_info.get("status") or sms_info.get("sms_status") or "DEMO",
+                "mode": sms_info.get("mode", "DEMO"),
+                "recipient": sms_info.get("recipient_mobile") or booking.get("farmer_mobile"),
+                "reference": sms_info.get("provider_reference"),
+                "failure_reason": sms_info.get("failure_reason")
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -514,7 +526,7 @@ def perform_operator_action(payload: Dict[str, Any]):
                 recipient_name=booking["farmer_name"],
                 token_number=token_key,
                 title="✅ Procurement Successful / खरीद पूर्ण",
-                message_text=f"KisanQueue: खरीद पर्ची जारी। कुल वजन: {net_qty} क्विंटल, दर: ₹{msp_rate}/Q, कुल राशि: ₹{total_payout:,.2f} स्वीकृत।",
+                message_text=f"AnnaSetu: खरीद पर्ची जारी। कुल वजन: {net_qty} क्विंटल, दर: ₹{msp_rate}/Q, कुल राशि: ₹{total_payout:,.2f} स्वीकृत।",
                 booking_id=booking["id"]
             )
             return {"status": "success", "message": "Procurement completed and MSP sanction issued.", "data": booking}
@@ -533,11 +545,11 @@ def perform_operator_action(payload: Dict[str, Any]):
             NotificationService.send_sms(
                 event_type="SLOT_RESCHEDULE",
                 idempotency_key=f"BROADCAST_{centre_id}_{datetime.now().strftime('%y%m%d%H%M')}",
-                recipient_mobile="All Waiting Farmers",
+                recipient_mobile="9800000001",
                 recipient_name="All Farmers",
                 token_number="ALL",
                 title="⚠️ Mandi Delay Alert",
-                message_text=f"KisanQueue Mandi Alert: {msg}"
+                message_text=f"AnnaSetu Mandi Alert: {msg}"
             )
             return {"status": "success", "message": "Broadcast alert sent to all farmers."}
 
@@ -570,7 +582,12 @@ def initiate_payment(payload: PaymentInitiateRequest, request: Request):
 def verify_payment(payload: PaymentVerifyRequest):
     """Backend payment verification: validates transaction, sanctions DBT, dispatches SMS, issues receipt."""
     receipt_data = PaymentService.verify_payment(payload.payment_reference)
-    return {"status": "success", "message": "Payment verified and credited successfully.", "data": receipt_data}
+    return {
+        "status": "success",
+        "message": "Payment verified and credited successfully.",
+        "data": receipt_data,
+        "sms": receipt_data.get("sms")
+    }
 
 
 @app.get("/api/payments/receipt/{payment_id}")
@@ -737,7 +754,7 @@ def get_district_admin_metrics():
         disbursed_inr = cursor.fetchone()[0]
         disbursed_crores = round(disbursed_inr / 10000000.0, 2)
 
-        cursor.execute("SELECT COUNT(*) FROM notifications WHERE status = 'DELIVERED'")
+        cursor.execute("SELECT COUNT(*) FROM notifications WHERE status != 'FAILED'")
         delivered_sms = cursor.fetchone()[0]
 
     return {
