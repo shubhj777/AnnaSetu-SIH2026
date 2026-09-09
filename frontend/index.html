@@ -67,8 +67,15 @@
     <div class="w-full max-w-lg">
       <div class="text-center mb-6">
         <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-white flex items-center justify-center text-3xl shadow-lg mb-3">🌾</div>
-        <h1 class="text-2xl font-extrabold text-slate-900 font-hindi">ANNASETU <span class="text-emerald-700">(अन्नसेतु)</span></h1>
-        <p class="text-xs text-slate-500 mt-1 font-semibold">स्मार्ट किसान फसल खरीद और रियल-टाइम कतार प्रबंधन प्रणाली</p>
+        <h1 class="text-2xl font-extrabold text-slate-900 font-hindi" data-i18n="auth_title">ANNASETU <span class="text-emerald-700">(अन्नसेतु)</span></h1>
+        <p class="text-xs text-slate-500 mt-1 font-semibold" data-i18n="auth_subtitle">स्मार्ट किसान फसल खरीद और रियल-टाइम कतार प्रबंधन प्रणाली</p>
+        <div class="inline-flex items-center bg-white p-1 rounded-2xl border border-slate-200 shadow-sm mt-3 language-switcher" aria-label="Language selector">
+          <button type="button" class="lang-btn active" data-lang="hi" title="हिन्दी">हि</button>
+          <button type="button" class="lang-btn" data-lang="en" title="English">EN</button>
+          <button type="button" class="lang-btn" data-lang="pa" title="ਪੰਜਾਬੀ">ਪੰ</button>
+          <button type="button" class="lang-btn" data-lang="mr" title="मराठी">म</button>
+          <button type="button" class="lang-btn" data-lang="te" title="తెలుగు">తె</button>
+        </div>
       </div>
 
       <div class="glass-card rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl bg-white">
@@ -89,57 +96,111 @@
         <div id="form-role-farmer" class="space-y-4">
           <!-- Toggle Subtabs: Login vs Register -->
           <div class="flex bg-slate-50 rounded-xl p-0.5 border border-slate-200 text-xs">
-            <button id="farmer-subtab-login" onclick="setFarmerSubTab('login')" class="flex-1 py-1.5 rounded-lg font-bold bg-white text-emerald-800 shadow-sm">लॉगिन (Login)</button>
-            <button id="farmer-subtab-register" onclick="setFarmerSubTab('register')" class="flex-1 py-1.5 rounded-lg font-bold text-slate-500">नया पंजीकरण (Register)</button>
+            <button id="farmer-subtab-login" onclick="setFarmerSubTab('login')" class="flex-1 py-1.5 rounded-lg font-bold bg-white text-emerald-800 shadow-sm" data-i18n="tab_login">लॉगिन</button>
+            <button id="farmer-subtab-register" onclick="setFarmerSubTab('register')" class="flex-1 py-1.5 rounded-lg font-bold text-slate-500" data-i18n="tab_register">नया पंजीकरण</button>
           </div>
 
+          <!-- Farmer Login Form -->
           <form id="farmer-login-form" onsubmit="handleFarmerLoginSubmit(event)" class="space-y-3">
             <div>
-              <label class="text-xs font-bold text-slate-700 block mb-1">मोबाइल नंबर / किसान आईडी (Mobile No. or FID)</label>
-              <input id="f-login-mobile" type="text" value="9812345678" required placeholder="10-digit mobile number or FID"
+              <label class="text-xs font-bold text-slate-700 block mb-1" data-i18n="label_mobile_or_fid">मोबाइल नंबर / किसान आईडी</label>
+              <input id="f-login-mobile" type="text" value="9812345678" required placeholder="10-digit mobile number or FID" data-i18n-placeholder="placeholder_mobile_or_fid"
                 class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
             <div>
-              <label class="text-xs font-bold text-slate-700 block mb-1">OTP या पासवर्ड (OTP or Password)</label>
-              <input id="f-login-otp" type="password" value="1234" placeholder="Enter any 4-6 digit OTP / password"
+              <div class="flex justify-between items-center mb-1">
+                <label class="text-xs font-bold text-slate-700 block" data-i18n="label_password_or_otp">पासवर्ड या ओटीपी</label>
+                <button type="button" onclick="openForgotPasswordModal()" class="text-xs text-emerald-700 hover:text-emerald-900 font-bold hover:underline" data-i18n="link_forgot_password">पासवर्ड भूल गए? (रिकवरी)</button>
+              </div>
+              <input id="f-login-otp" type="password" value="1234" placeholder="Enter any 4-6 digit OTP / password" data-i18n-placeholder="placeholder_password_or_otp"
                 class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-              <span class="text-[10px] text-slate-400 mt-1 block">💡 डेमो के लिए कोई भी 4-अंक OTP स्वीकार्य है (e.g. 1234)</span>
+              <span class="text-[10px] text-slate-400 mt-1 block" data-i18n="demo_otp_hint">💡 डेमो के लिए कोई भी 4-अंक OTP स्वीकार्य है (उदा. 1234)</span>
             </div>
             <p id="f-login-error" class="text-xs text-rose-600 font-semibold hidden"></p>
             <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
-              <i class="fa-solid fa-right-to-bracket"></i> किसान पोर्टल पर लॉगिन करें (Farmer Login)
+              <i class="fa-solid fa-right-to-bracket"></i> <span data-i18n="btn_farmer_login">किसान पोर्टल पर लॉगिन करें</span>
             </button>
             <button type="button" onclick="handleDemoFarmerLogin()" class="w-full py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5">
-              <span>⚡ 1-क्लिक डेमो किसान (Ramesh Kumar — Token #A-52)</span>
+              <span data-i18n="btn_demo_farmer">⚡ 1-क्लिक डेमो किसान (रमेश कुमार — टोकन #A-52)</span>
             </button>
           </form>
 
           <!-- Farmer Register Form -->
           <form id="farmer-register-form" onsubmit="handleFarmerRegisterSubmit(event)" class="space-y-3 hidden">
             <div>
-              <label class="text-xs font-bold text-slate-700 block mb-1">पूरा नाम (Full Name)</label>
-              <input id="f-reg-name" type="text" required placeholder="e.g. Ramesh Kumar"
+              <label class="text-xs font-bold text-slate-700 block mb-1" data-i18n="label_full_name">पूरा नाम</label>
+              <input id="f-reg-name" type="text" required placeholder="e.g. Ramesh Kumar" data-i18n-placeholder="placeholder_full_name"
                 class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-xs font-bold text-slate-700 block mb-1">मोबाइल (Mobile)</label>
-                <input id="f-reg-mobile" type="tel" pattern="[0-9]{10}" maxlength="10" required placeholder="10-digit"
+                <label class="text-xs font-bold text-slate-700 block mb-1" data-i18n="label_mobile">भारतीय मोबाइल नंबर</label>
+                <input id="f-reg-mobile" type="tel" pattern="[0-9]{10}" maxlength="15" required placeholder="10-digit" data-i18n-placeholder="placeholder_mobile"
                   class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
               </div>
               <div>
-                <label class="text-xs font-bold text-slate-700 block mb-1">गाँव (Village)</label>
-                <input id="f-reg-village" type="text" required placeholder="Village Name"
+                <label class="text-xs font-bold text-slate-700 block mb-1" data-i18n="label_village">गाँव का नाम</label>
+                <input id="f-reg-village" type="text" required placeholder="Village Name" data-i18n-placeholder="placeholder_village"
                   class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
               </div>
             </div>
             <div>
-              <label class="text-xs font-bold text-slate-700 block mb-1">पासवर्ड / पिन (Password)</label>
-              <input id="f-reg-password" type="password" required minlength="4" placeholder="At least 4 characters"
+              <label class="text-xs font-bold text-slate-700 block mb-1" data-i18n="label_reg_password">मजबूत पासवर्ड</label>
+              <input id="f-reg-password" type="password" required oninput="updateRegPasswordCriteria(this.value)" placeholder="At least 8 characters (e.g. Agri@2026)" data-i18n-placeholder="placeholder_reg_password"
                 class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
+            <!-- Interactive Password Criteria Checklist -->
+            <div id="reg-password-checklist" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px]">
+              <div class="font-bold text-slate-700" data-i18n="pwd_criteria_title">पासवर्ड की आवश्यकताएं:</div>
+              <div id="pwd-chk-len" class="flex items-center gap-1.5 text-slate-500 font-medium">
+                <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_length">कम से कम 8 अक्षर</span>
+              </div>
+              <div id="pwd-chk-upper" class="flex items-center gap-1.5 text-slate-500 font-medium">
+                <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_upper">कम से कम एक बड़ा अक्षर (A-Z)</span>
+              </div>
+              <div id="pwd-chk-lower" class="flex items-center gap-1.5 text-slate-500 font-medium">
+                <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_lower">कम से कम एक छोटा अक्षर (a-z)</span>
+              </div>
+              <div id="pwd-chk-num" class="flex items-center gap-1.5 text-slate-500 font-medium">
+                <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_number">कम से कम एक अंक (0-9)</span>
+              </div>
+              <div id="pwd-chk-special" class="flex items-center gap-1.5 text-slate-500 font-medium">
+                <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_special">कम से कम एक विशेष चिन्ह (!@#$%^&*)</span>
+              </div>
+            </div>
+
+            <!-- Security Questions Configuration -->
+            <div class="space-y-2.5 pt-2 border-t border-slate-200 text-xs">
+              <div>
+                <label class="font-bold text-slate-700 block mb-1" data-i18n="label_sec_q1">सुरक्षा प्रश्न 1</label>
+                <select id="f-reg-sec-q1" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                  <option value="What was the name of your first school?" data-i18n="q_school">आपके पहले स्कूल का नाम क्या था?</option>
+                  <option value="What is your native village or hometown?" data-i18n="q_village">आपका पैतृक गाँव या शहर कौन सा है?</option>
+                  <option value="What was your childhood nickname?" data-i18n="q_nickname">आपके बचपन का उपनाम क्या था?</option>
+                  <option value="What is your favorite crop?" data-i18n="q_crop">आपकी पसंदीदा फसल कौन सी है?</option>
+                </select>
+              </div>
+              <div>
+                <input id="f-reg-sec-a1" type="text" required placeholder="उत्तर दर्ज करें (केस-असंवेदनशील)" data-i18n-placeholder="placeholder_sec_a1"
+                  class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1" data-i18n="label_sec_q2">सुरक्षा प्रश्न 2</label>
+                <select id="f-reg-sec-q2" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                  <option value="What was your childhood nickname?" data-i18n="q_nickname">आपके बचपन का उपनाम क्या था?</option>
+                  <option value="What is your native village or hometown?" data-i18n="q_village">आपका पैतृक गाँव या शहर कौन सा है?</option>
+                  <option value="What was the name of your first school?" data-i18n="q_school">आपके पहले स्कूल का नाम क्या था?</option>
+                  <option value="What is your favorite crop?" data-i18n="q_crop">आपकी पसंदीदा फसल कौन सी है?</option>
+                </select>
+              </div>
+              <div>
+                <input id="f-reg-sec-a2" type="text" required placeholder="उत्तर दर्ज करें" data-i18n-placeholder="placeholder_sec_a2"
+                  class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
             <p id="f-reg-error" class="text-xs text-rose-600 font-semibold hidden"></p>
-            <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition">खाता बनाएं व स्लॉट बुक करें</button>
+            <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition" data-i18n="btn_create_account">खाता बनाएं व स्लॉट बुक करें</button>
           </form>
         </div>
 
@@ -253,13 +314,52 @@
           </div>
 
           <!-- Header Right Utilities -->
-          <div class="header-actions flex items-center gap-2.5">
+          <div class="header-actions flex items-center gap-2">
             <!-- User Session Pill with Direct Red Logout Button -->
             <div class="user-pill flex items-center bg-slate-900 text-white pl-3 pr-1 py-1 rounded-full text-xs font-bold shadow">
               <span id="header-user-name" class="font-bold mr-2 truncate max-w-[100px]">Ramesh</span>
               <button onclick="logout()" class="px-2.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-[10px] font-black transition" title="Logout">
                 <span data-i18n="logout_btn">लॉगआउट</span>
               </button>
+            </div>
+
+            <!-- Three-Dot Overflow User Menu -->
+            <div class="relative inline-block text-left" id="user-menu-container">
+              <button id="user-menu-btn" type="button" onclick="toggleUserMenu()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition flex items-center justify-center shadow-sm" title="User Menu" aria-label="User Options">
+                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+              </button>
+              <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 origin-top-right rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 divide-y divide-slate-100 focus:outline-none z-50 border border-slate-200 py-1 text-xs font-bold text-slate-700">
+                <div class="py-1">
+                  <button type="button" onclick="handleMenuAction('book_slot')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition">
+                    <i class="fa-solid fa-calendar-plus text-emerald-600 w-4 text-center"></i>
+                    <span data-i18n="menu_new_slot">नया स्लॉट बुक करें</span>
+                  </button>
+                  <button type="button" onclick="handleMenuAction('new_reg')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition">
+                    <i class="fa-solid fa-user-plus text-teal-600 w-4 text-center"></i>
+                    <span data-i18n="menu_new_reg">नया पंजीकरण</span>
+                  </button>
+                </div>
+                <div class="py-1">
+                  <button type="button" onclick="handleMenuAction('change_pwd')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition">
+                    <i class="fa-solid fa-key text-amber-600 w-4 text-center"></i>
+                    <span data-i18n="menu_change_pwd">पासवर्ड बदलें</span>
+                  </button>
+                  <button type="button" onclick="handleMenuAction('forgot_pwd')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition">
+                    <i class="fa-solid fa-shield-halved text-indigo-600 w-4 text-center"></i>
+                    <span data-i18n="menu_forgot_pwd">पासवर्ड रिकवरी</span>
+                  </button>
+                  <button type="button" onclick="handleMenuAction('profile')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition">
+                    <i class="fa-solid fa-id-card text-blue-600 w-4 text-center"></i>
+                    <span data-i18n="menu_profile">किसान प्रोफाइल</span>
+                  </button>
+                </div>
+                <div class="py-1">
+                  <button type="button" onclick="handleMenuAction('logout')" class="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2.5 transition font-black">
+                    <i class="fa-solid fa-right-from-bracket text-rose-600 w-4 text-center"></i>
+                    <span data-i18n="menu_logout">लॉगआउट</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Prominent Green Slot Booking Button -->
@@ -269,7 +369,7 @@
             </button>
 
             <!-- Language Pills (हिन्दी, EN, ਪੰਜਾਬੀ, मराठी, తెలుగు) -->
-            <div class="language-switcher hidden lg:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200" aria-label="Language selector">
+            <div class="language-switcher flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200" aria-label="Language selector">
               <button type="button" class="lang-btn active" data-lang="hi" title="हिन्दी">हि</button>
               <button type="button" class="lang-btn" data-lang="en" title="English">EN</button>
               <button type="button" class="lang-btn" data-lang="pa" title="ਪੰਜਾਬੀ">ਪੰ</button>
@@ -874,6 +974,232 @@
   </div>
 
   <!-- ================= MODALS & DRAWERS ================= -->
+
+  <!-- 0A. CHANGE PASSWORD MODAL -->
+  <div id="change-password-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+          <i class="fa-solid fa-key text-amber-600"></i> <span data-i18n="change_pwd_title">पासवर्ड बदलें</span>
+        </h3>
+        <button onclick="closeChangePasswordModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-xs text-slate-500" data-i18n="change_pwd_sub">अपने खाते के लिए नया सुरक्षित पासवर्ड निर्धारित करें।</p>
+      <form id="change-password-form" onsubmit="handleChangePasswordSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_current_pwd">वर्तमान पासवर्ड</label>
+          <input id="cp-current-pwd" type="password" required placeholder="वर्तमान पासवर्ड दर्ज करें" data-i18n-placeholder="placeholder_current_pwd"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_new_pwd">नया पासवर्ड</label>
+          <input id="cp-new-pwd" type="password" required oninput="updateChangePasswordCriteria(this.value)" placeholder="नया मजबूत पासवर्ड दर्ज करें" data-i18n-placeholder="placeholder_new_pwd"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <!-- Interactive Password Criteria Checklist -->
+        <div id="cp-password-checklist" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px]">
+          <div class="font-bold text-slate-700" data-i18n="pwd_criteria_title">पासवर्ड की आवश्यकताएं:</div>
+          <div id="cp-chk-len" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_length">कम से कम 8 अक्षर</span>
+          </div>
+          <div id="cp-chk-upper" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_upper">कम से कम एक बड़ा अक्षर (A-Z)</span>
+          </div>
+          <div id="cp-chk-lower" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_lower">कम से कम एक छोटा अक्षर (a-z)</span>
+          </div>
+          <div id="cp-chk-num" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_number">कम से कम एक अंक (0-9)</span>
+          </div>
+          <div id="cp-chk-special" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_special">कम से कम एक विशेष चिन्ह (!@#$%^&*)</span>
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_confirm_pwd">नए पासवर्ड की पुष्टि करें</label>
+          <input id="cp-confirm-pwd" type="password" required placeholder="नया पासवर्ड पुनः दर्ज करें" data-i18n-placeholder="placeholder_confirm_pwd"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <p id="cp-error" class="text-xs text-rose-600 font-semibold hidden"></p>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeChangePasswordModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition" data-i18n="btn_cancel">रद्द करें</button>
+          <button type="submit" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition" data-i18n="btn_save_new_pwd">पासवर्ड अपडेट करें</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 0B. FORGOT PASSWORD MODAL (SECURITY QUESTIONS RECOVERY - NO OTP) -->
+  <div id="forgot-password-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-indigo-600"></i> <span data-i18n="forgot_pwd_title">पासवर्ड रिकवरी</span>
+        </h3>
+        <button onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-xs text-slate-500" data-i18n="forgot_pwd_sub">सुरक्षा प्रश्नों के माध्यम से बिना ओटीपी के पासवर्ड पुनर्प्राप्त करें।</p>
+
+      <!-- STEP 1: ENTER REGISTERED MOBILE NUMBER -->
+      <div id="fp-step-1" class="space-y-3 text-xs">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-indigo-900 font-semibold" data-i18n="step1_desc">
+          खाता खोजने के लिए अपना 10-अंकों का भारतीय मोबाइल नंबर दर्ज करें।
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_mobile">भारतीय मोबाइल नंबर</label>
+          <input id="fp-mobile" type="tel" pattern="[0-9]{10}" maxlength="15" required placeholder="10-digit mobile number" data-i18n-placeholder="placeholder_mobile"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <p id="fp-step1-error" class="text-xs text-rose-600 font-semibold hidden"></p>
+        <button type="button" onclick="handleForgotStep1Submit()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2">
+          <span data-i18n="btn_find_account">आगे बढ़ें (सुरक्षा प्रश्न खोजें)</span> <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+
+      <!-- STEP 2: ANSWER SECURITY QUESTIONS -->
+      <div id="fp-step-2" class="space-y-3 text-xs hidden">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-indigo-900 font-semibold" data-i18n="step2_desc">
+          पंजीकरण के समय निर्धारित प्रश्नों के सही उत्तर दें।
+        </div>
+        <div>
+          <label id="fp-q1-label" class="font-bold text-slate-800 block mb-1">प्रश्न 1</label>
+          <input id="fp-a1" type="text" required placeholder="उत्तर दर्ज करें (केस-असंवेदनशील)" data-i18n-placeholder="placeholder_sec_a1"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label id="fp-q2-label" class="font-bold text-slate-800 block mb-1">प्रश्न 2</label>
+          <input id="fp-a2" type="text" required placeholder="उत्तर दर्ज करें" data-i18n-placeholder="placeholder_sec_a2"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <p id="fp-step2-error" class="text-xs text-rose-600 font-semibold hidden"></p>
+        <div class="flex gap-2">
+          <button type="button" onclick="goToForgotStep(1)" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <button type="button" onclick="handleForgotStep2Submit()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition" data-i18n="btn_verify_answers">
+            उत्तर सत्यापित करें
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 3: RESET TO STRONG NEW PASSWORD -->
+      <div id="fp-step-3" class="space-y-3 text-xs hidden">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 font-semibold" data-i18n="step3_desc">
+          सुरक्षा नीति के अनुसार नया पासवर्ड दर्ज करें।
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_new_pwd">नया पासवर्ड</label>
+          <input id="fp-new-pwd" type="password" required oninput="updateForgotResetPasswordCriteria(this.value)" placeholder="नया मजबूत पासवर्ड दर्ज करें" data-i18n-placeholder="placeholder_new_pwd"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <!-- Interactive Password Criteria Checklist -->
+        <div id="fp-password-checklist" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px]">
+          <div class="font-bold text-slate-700" data-i18n="pwd_criteria_title">पासवर्ड की आवश्यकताएं:</div>
+          <div id="fp-chk-len" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_length">कम से कम 8 अक्षर</span>
+          </div>
+          <div id="fp-chk-upper" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_upper">कम से कम एक बड़ा अक्षर (A-Z)</span>
+          </div>
+          <div id="fp-chk-lower" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_lower">कम से कम एक छोटा अक्षर (a-z)</span>
+          </div>
+          <div id="fp-chk-num" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_number">कम से कम एक अंक (0-9)</span>
+          </div>
+          <div id="fp-chk-special" class="flex items-center gap-1.5 text-slate-500 font-medium">
+            <i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_special">कम से कम एक विशेष चिन्ह (!@#$%^&*)</span>
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_confirm_pwd">नए पासवर्ड की पुष्टि करें</label>
+          <input id="fp-confirm-pwd" type="password" required placeholder="नया पासवर्ड पुनः दर्ज करें" data-i18n-placeholder="placeholder_confirm_pwd"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <p id="fp-step3-error" class="text-xs text-rose-600 font-semibold hidden"></p>
+        <button type="button" onclick="handleForgotStep3Submit()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition" data-i18n="btn_reset_pwd">
+          नया पासवर्ड सहेजें
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0C. NEW REGISTRATION MODAL (ACCESSIBLE FROM THREE-DOT MENU) -->
+  <div id="new-reg-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-teal-600"></i> <span data-i18n="menu_new_reg">नया पंजीकरण</span>
+        </h3>
+        <button onclick="closeNewRegistrationModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form id="modal-register-form" onsubmit="handleModalRegisterSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_full_name">पूरा नाम</label>
+          <input id="m-reg-name" type="text" required placeholder="e.g. Ramesh Kumar" data-i18n-placeholder="placeholder_full_name"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1" data-i18n="label_mobile">भारतीय मोबाइल नंबर</label>
+            <input id="m-reg-mobile" type="tel" pattern="[0-9]{10}" maxlength="15" required placeholder="10-digit mobile" data-i18n-placeholder="placeholder_mobile"
+              class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1" data-i18n="label_village">गाँव का नाम</label>
+            <input id="m-reg-village" type="text" required placeholder="Village Name" data-i18n-placeholder="placeholder_village"
+              class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1" data-i18n="label_reg_password">मजबूत पासवर्ड</label>
+          <input id="m-reg-password" type="password" required oninput="updateModalRegPasswordCriteria(this.value)" placeholder="At least 8 characters" data-i18n-placeholder="placeholder_reg_password"
+            class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div id="m-reg-password-checklist" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px]">
+          <div class="font-bold text-slate-700" data-i18n="pwd_criteria_title">पासवर्ड की आवश्यकताएं:</div>
+          <div id="m-pwd-chk-len" class="flex items-center gap-1.5 text-slate-500 font-medium"><i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_length">कम से कम 8 अक्षर</span></div>
+          <div id="m-pwd-chk-upper" class="flex items-center gap-1.5 text-slate-500 font-medium"><i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_upper">कम से कम एक बड़ा अक्षर (A-Z)</span></div>
+          <div id="m-pwd-chk-lower" class="flex items-center gap-1.5 text-slate-500 font-medium"><i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_lower">कम से कम एक छोटा अक्षर (a-z)</span></div>
+          <div id="m-pwd-chk-num" class="flex items-center gap-1.5 text-slate-500 font-medium"><i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_number">कम से कम एक अंक (0-9)</span></div>
+          <div id="m-pwd-chk-special" class="flex items-center gap-1.5 text-slate-500 font-medium"><i class="fa-solid fa-circle-xmark text-slate-400"></i> <span data-i18n="pwd_rule_special">कम से कम एक विशेष चिन्ह (!@#$%^&*)</span></div>
+        </div>
+        <div class="space-y-2.5 pt-2 border-t border-slate-200">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1" data-i18n="label_sec_q1">सुरक्षा प्रश्न 1</label>
+            <select id="m-reg-sec-q1" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <option value="What was the name of your first school?" data-i18n="q_school">आपके पहले स्कूल का नाम क्या था?</option>
+              <option value="What is your native village or hometown?" data-i18n="q_village">आपका पैतृक गाँव या शहर कौन सा है?</option>
+              <option value="What was your childhood nickname?" data-i18n="q_nickname">आपके बचपन का उपनाम क्या था?</option>
+              <option value="What is your favorite crop?" data-i18n="q_crop">आपकी पसंदीदा फसल कौन सी है?</option>
+            </select>
+          </div>
+          <div>
+            <input id="m-reg-sec-a1" type="text" required placeholder="उत्तर दर्ज करें" data-i18n-placeholder="placeholder_sec_a1"
+              class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1" data-i18n="label_sec_q2">सुरक्षा प्रश्न 2</label>
+            <select id="m-reg-sec-q2" class="w-full border border-slate-300 rounded-xl px-3 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <option value="What was your childhood nickname?" data-i18n="q_nickname">आपके बचपन का उपनाम क्या था?</option>
+              <option value="What is your native village or hometown?" data-i18n="q_village">आपका पैतृक गाँव या शहर कौन सा है?</option>
+              <option value="What was the name of your first school?" data-i18n="q_school">आपके पहले स्कूल का नाम क्या था?</option>
+              <option value="What is your favorite crop?" data-i18n="q_crop">आपकी पसंदीदा फसल कौन सी है?</option>
+            </select>
+          </div>
+          <div>
+            <input id="m-reg-sec-a2" type="text" required placeholder="उत्तर दर्ज करें" data-i18n-placeholder="placeholder_sec_a2"
+              class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+        <p id="m-reg-error" class="text-xs text-rose-600 font-semibold hidden"></p>
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeNewRegistrationModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition" data-i18n="btn_cancel">रद्द करें</button>
+          <button type="submit" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition" data-i18n="btn_create_account">खाता बनाएं</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- 1. FULL FARMER PROFILE MODAL -->
   <div id="profile-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

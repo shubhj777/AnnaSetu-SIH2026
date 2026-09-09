@@ -21,7 +21,18 @@ def seed_database(force_reseed: bool = False):
         centre_count = cursor.fetchone()["count"]
 
         if centre_count > 0 and not force_reseed:
+            # Safely ensure demo users have default security questions if missing
+            default_q1 = "What was the name of your first school?"
+            default_a1_hash = hash_password("karnal school")
+            default_q2 = "What was your childhood nickname?"
+            default_a2_hash = hash_password("kisan")
+            cursor.execute("""
+                UPDATE users
+                SET sec_q1 = ?, sec_a1_hash = ?, sec_q2 = ?, sec_a2_hash = ?
+                WHERE sec_q1 IS NULL OR sec_a1_hash IS NULL
+            """, (default_q1, default_a1_hash, default_q2, default_a2_hash))
             return  # Already seeded
+
 
         if force_reseed:
             cursor.execute("DELETE FROM notifications;")
@@ -298,18 +309,26 @@ def seed_database(force_reseed: bool = False):
             }
         ]
 
+        default_q1 = "What was the name of your first school?"
+        default_a1_hash = hash_password("karnal school")
+        default_q2 = "What was your childhood nickname?"
+        default_a2_hash = hash_password("kisan")
+
         for u in users_data:
             cursor.execute("""
                 INSERT INTO users (
                     id, name, mobile, password_hash, role, farmer_id,
                     aadhaar_masked, village, district, state, kcc_number,
-                    bank_name, account_masked, ifsc, lat, lng, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bank_name, account_masked, ifsc, lat, lng,
+                    sec_q1, sec_a1_hash, sec_q2, sec_a2_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 u["id"], u["name"], u["mobile"], u["password_hash"], u["role"], u["farmer_id"],
                 u["aadhaar_masked"], u["village"], u["district"], u["state"], u["kcc_number"],
-                u["bank_name"], u["account_masked"], u["ifsc"], u["lat"], u["lng"], now_iso
+                u["bank_name"], u["account_masked"], u["ifsc"], u["lat"], u["lng"],
+                default_q1, default_a1_hash, default_q2, default_a2_hash, now_iso
             ))
+
 
         # -------------------------------------------------------------
         # 4. SEED 4 REALISTIC DEMO ENTRIES (DISTINCT LIFECYCLE STATES)

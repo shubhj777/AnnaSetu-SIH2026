@@ -17,12 +17,17 @@ from datetime import datetime, date
 
 from database import get_db, init_db, row_to_dict, rows_to_list
 from seed import seed_database
-from auth import hash_password, verify_password, create_access_token, decode_access_token
+from auth import (
+    hash_password, verify_password, create_access_token, decode_access_token,
+    normalize_indian_mobile, validate_strong_password,
+    hash_security_answer, verify_security_answer, normalize_security_answer
+)
 from data_store import db
 from notifications import NotificationService
 from payments import PaymentService
 from crops import CropService
 from scheduler import check_and_send_due_reminders, parse_slot_start_datetime
+
 
 
 class TestKisanQueueCore(unittest.TestCase):
@@ -309,6 +314,179 @@ class TestKisanQueueCore(unittest.TestCase):
             self.assertIn("status", item)
             self.assertIn("farmer_name", item)
 
+    def test_14_indian_mobile_normalization_and_validation(self):
+        """Verify standard 10-digit Indian mobile numbers and prefixes are correctly normalized and invalid numbers rejected."""
+        self.assertEqual(normalize_indian_mobile("9812345678"), "9812345678")
+        self.assertEqual(normalize_indian_mobile("+91 9812345678"), "9812345678")
+        self.assertEqual(normalize_indian_mobile("+91-98765-43210"), "9876543210")
+        self.assertEqual(normalize_indian_mobile("09812345678"), "9812345678")
+        self.assertEqual(normalize_indian_mobile("919812345678"), "9812345678")
+
+        # Invalid formats
+        self.assertIsNone(normalize_indian_mobile("1234567890"))  # Starts with 1
+        self.assertIsNone(normalize_indian_mobile("5812345678"))  # Starts with 5
+        self.assertIsNone(normalize_indian_mobile("981234"))      # Too short
+        self.assertIsNone(normalize_indian_mobile("9812345678901")) # Too long
+        self.assertIsNone(normalize_indian_mobile("abcdefghij"))  # Non-numeric
+
+    def test_15_strong_password_policy_enforcement(self):
+        """Verify strict password rules: min 8 chars, uppercase, lowercase, number, special symbol."""
+        # Valid password
+        ok, msg = validate_strong_password("Agri@2026")
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+        ok, msg = validate_strong_password("Kisan#Pass99")
+        self.assertTrue(ok)
+
+        # Invalid passwords
+        self.assertFalse(validate_strong_password("12345678")[0])       # Only numbers
+        self.assertFalse(validate_strong_password("abcdefgh")[0])       # Only lowercase
+        self.assertFalse(validate_strong_password("Abcdefgh")[0])       # No number or symbol
+        self.assertFalse(validate_strong_password("Abcdef12")[0])       # No special symbol
+        self.assertFalse(validate_strong_password("Agri@26")[0])        # Too short (< 8 chars)
+
+    def test_16_unique_mobile_database_constraint(self):
+        """Verify database-level unique mobile enforcement prevents duplicate registration."""
+        import sqlite3
+        with get_db() as conn:
+            cursor = conn.cursor()
+            # Attempt inserting a duplicate mobile already in database ('9812345678')
+            with self.assertRaises(sqlite3.IntegrityError):
+                cursor.execute("""
+                    INSERT INTO users (id, name, mobile, password_hash, role, created_at)
+                    VALUES ('usr-duplicate-test', 'Duplicate User', '9812345678', 'hash', 'farmer', '2026-09-09 10:00:00')
+                """)
+
+    def test_17_security_answer_hashing_and_normalization(self):
+        """Verify security answers are never stored in plaintext and normalize whitespace/case safely."""
+        raw_answer = "  Karnal Model School  "
+        normalized = normalize_security_answer(raw_answer)
+        self.assertEqual(normalized, "karnal model school")
+
+        hashed = hash_security_answer(raw_answer)
+        self.assertNotIn("karnal", hashed.lower())  # Salted hash does not expose plain text
+        self.assertTrue(hashed.startswith(hashed.split("$")[0] + "$"))  # Valid salt$hash structure
+
+        # Verification is case and whitespace insensitive
+        self.assertTrue(verify_security_answer("karnal model school", hashed))
+        self.assertTrue(verify_security_answer("KARNAL  MODEL   SCHOOL", hashed))
+        self.assertFalse(verify_security_answer("Delhi Model School", hashed))
+
+    def test_18_demo_users_security_questions_backfilled(self):
+        """Verify all seeded users possess non-null security questions and hashed answers."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, mobile, sec_q1, sec_a1_hash, sec_q2, sec_a2_hash FROM users")
+            users = rows_to_list(cursor.fetchall())
+            self.assertGreaterEqual(len(users), 4)
+            for u in users:
+                self.assertIsNotNone(u["sec_q1"])
+                self.assertIsNotNone(u["sec_a1_hash"])
+                self.assertIsNotNone(u["sec_q2"])
+                self.assertIsNotNone(u["sec_a2_hash"])
+                # Ensure security hashes are valid salt$hash
+                self.assertIn("$", u["sec_a1_hash"])
+                self.assertIn("$", u["sec_a2_hash"])
+
+    def test_19_auth_endpoints_integration(self):
+        """Test API endpoints for registration, duplicate phone rejection, forgot password, and change password."""
+        from fastapi.testclient import TestClient
+        from main import app
+        client = TestClient(app)
+
+        # 1. Register with invalid phone number -> 400
+        res = client.post("/api/auth/register", json={
+            "name": "Invalid Phone Test",
+            "mobile": "1234567890",
+            "password": "Valid@Password2026"
+        })
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("valid 10-digit Indian mobile", res.json()["detail"])
+
+        # 2. Register with weak password -> 400
+        res = client.post("/api/auth/register", json={
+            "name": "Weak Pass Test",
+            "mobile": "9870000001",
+            "password": "weak"
+        })
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("at least 8 characters", res.json()["detail"])
+
+        # 3. Register with duplicate phone (Ramesh's 9812345678) -> 400
+        res = client.post("/api/auth/register", json={
+            "name": "Another Ramesh",
+            "mobile": "9812345678",
+            "password": "Valid@Password2026"
+        })
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("already exists", res.json()["detail"])
+
+        # 4. Successful registration with new Indian phone (+91 format)
+        res = client.post("/api/auth/register", json={
+            "name": "New Integrated Farmer",
+            "mobile": "+91 98700 11223",
+            "password": "Farmer@Pass2026",
+            "sec_q1": "What was the name of your first school?",
+            "sec_a1": "Karnal Primary School",
+            "sec_q2": "What was your childhood nickname?",
+            "sec_a2": "Chintu"
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["user"]["mobile"], "9870011223")
+        self.assertNotIn("password_hash", data["user"])
+        token = data["token"]
+
+        # 5. Forgot password questions retrieval
+        res = client.post("/api/auth/forgot-password/questions", json={"mobile": "9870011223"})
+        self.assertEqual(res.status_code, 200)
+        q_data = res.json()
+        self.assertEqual(len(q_data["questions"]), 2)
+
+        # 6. Forgot password reset with wrong answer -> 400
+        res = client.post("/api/auth/forgot-password/reset", json={
+            "mobile": "9870011223",
+            "sec_a1": "Wrong School",
+            "sec_a2": "Chintu",
+            "new_password": "NewStrong@Pass2026"
+        })
+        self.assertEqual(res.status_code, 400)
+
+        # 7. Forgot password reset with correct answers (case-insensitive) -> 200
+        res = client.post("/api/auth/forgot-password/reset", json={
+            "mobile": "9870011223",
+            "sec_a1": "  karnal primary school  ",
+            "sec_a2": "CHINTU",
+            "new_password": "NewStrong@Pass2026"
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Password reset successfully", res.json()["message"])
+
+        # 8. Login with the new password
+        res = client.post("/api/auth/login", json={
+            "identifier": "9870011223",
+            "password": "NewStrong@Pass2026"
+        })
+        self.assertEqual(res.status_code, 200)
+        new_token = res.json()["token"]
+
+        # 9. Change password for logged-in user
+        res = client.post(
+            "/api/auth/change-password",
+            headers={"Authorization": f"Bearer {new_token}"},
+            json={
+                "current_password": "NewStrong@Pass2026",
+                "new_password": "Changed@Pass2026",
+                "confirm_password": "Changed@Pass2026"
+            }
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Password changed successfully", res.json()["message"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
+

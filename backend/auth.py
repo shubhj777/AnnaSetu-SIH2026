@@ -5,16 +5,117 @@ and HMAC-SHA256 signed session tokens (JWT-compatible format).
 """
 
 import os
+import re
 import hmac
 import hashlib
 import json
 import base64
 import time
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from fastapi import Request, HTTPException, Depends, status
 
 SECRET_KEY = os.getenv("SECRET_KEY", "kisanqueue-secure-token-secret-key-2026-prod")
 TOKEN_EXPIRY_SECONDS = 7 * 24 * 3600  # 7 Days
+
+# In-memory rate limiting tracker for security question verification
+_FAILED_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_SECONDS = 15 * 60  # 15 minutes
+
+
+def normalize_indian_mobile(mobile: str) -> Optional[str]:
+    """
+    Validates and normalizes Indian mobile numbers into standard 10-digit format.
+    Accepts 10 digits starting with 6-9, as well as +91, 91, or leading 0 prefixes.
+    Returns normalized 10-digit string or None if invalid.
+    """
+    if not mobile or not isinstance(mobile, str):
+        return None
+    cleaned = re.sub(r"[\s\-\(\)\.]", "", mobile.strip())
+    if cleaned.startswith("+91"):
+        cleaned = cleaned[3:]
+    elif cleaned.startswith("91") and len(cleaned) == 12:
+        cleaned = cleaned[2:]
+    elif cleaned.startswith("0") and len(cleaned) == 11:
+        cleaned = cleaned[1:]
+
+    if re.fullmatch(r"[6-9]\d{9}", cleaned):
+        return cleaned
+    return None
+
+
+def validate_strong_password(password: str) -> Tuple[bool, str]:
+    """
+    Enforces strong password policy:
+    - At least 8 characters
+    - At least 1 uppercase letter (A-Z)
+    - At least 1 lowercase letter (a-z)
+    - At least 1 number (0-9)
+    - At least 1 special character (!@#$%^&* etc.)
+    """
+    if not password or len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter (A-Z)."
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter (a-z)."
+    if not re.search(r"[0-9]", password):
+        return False, "Password must contain at least one number (0-9)."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_=+]", password):
+        return False, "Password must contain at least one special character (!@#$%^&* etc.)."
+    return True, ""
+
+
+def normalize_security_answer(answer: str) -> str:
+    """Trims whitespace and converts to lowercase for consistent verification."""
+    if not answer:
+        return ""
+    return re.sub(r"\s+", " ", answer.strip().lower())
+
+
+def hash_security_answer(answer: str) -> str:
+    """Hashes normalized security answer using salted PBKDF2-HMAC-SHA256."""
+    norm = normalize_security_answer(answer)
+    return hash_password(norm)
+
+
+def verify_security_answer(answer: str, hashed_str: str) -> bool:
+    """Verifies user input against stored PBKDF2 hash of the security answer."""
+    if not hashed_str:
+        return False
+    norm = normalize_security_answer(answer)
+    return verify_password(norm, hashed_str)
+
+
+def check_recovery_rate_limit(mobile: str) -> Tuple[bool, str]:
+    """Checks if a mobile number is temporarily locked out due to excessive failed attempts."""
+    now = time.time()
+    record = _FAILED_ATTEMPTS.get(mobile)
+    if record:
+        locked_until = record.get("locked_until", 0)
+        if now < locked_until:
+            rem_min = int((locked_until - now) // 60) + 1
+            return False, f"Too many failed attempts. Please try again in {rem_min} minutes."
+        if now >= locked_until and record.get("count", 0) >= MAX_FAILED_ATTEMPTS:
+            # Reset after lockout expires
+            _FAILED_ATTEMPTS.pop(mobile, None)
+    return True, ""
+
+
+def record_failed_recovery_attempt(mobile: str):
+    """Records a failed security answer attempt and applies lockout if threshold reached."""
+    now = time.time()
+    record = _FAILED_ATTEMPTS.get(mobile, {"count": 0, "locked_until": 0})
+    record["count"] += 1
+    if record["count"] >= MAX_FAILED_ATTEMPTS:
+        record["locked_until"] = now + LOCKOUT_SECONDS
+    _FAILED_ATTEMPTS[mobile] = record
+
+
+def clear_recovery_attempts(mobile: str):
+    """Clears failed attempts upon successful verification."""
+    _FAILED_ATTEMPTS.pop(mobile, None)
+
 
 
 def _b64encode(data: bytes) -> str:

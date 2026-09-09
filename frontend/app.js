@@ -21,6 +21,419 @@ const STATE = {
 };
 
 // -------------------------------------------------------------
+// MOBILE & PASSWORD VALIDATION HELPERS
+// -------------------------------------------------------------
+function normalizeIndianMobile(mobile) {
+  if (!mobile || typeof mobile !== "string") return null;
+  let cleaned = mobile.trim().replace(/[\s\-\(\)\.]/g, "");
+  if (cleaned.startsWith("+91")) cleaned = cleaned.slice(3);
+  else if (cleaned.startsWith("91") && cleaned.length === 12) cleaned = cleaned.slice(2);
+  else if (cleaned.startsWith("0") && cleaned.length === 11) cleaned = cleaned.slice(1);
+  if (/^[6-9]\d{9}$/.test(cleaned)) return cleaned;
+  return null;
+}
+
+function checkPasswordStrength(pwd) {
+  return {
+    len: pwd && pwd.length >= 8,
+    upper: /[A-Z]/.test(pwd || ""),
+    lower: /[a-z]/.test(pwd || ""),
+    num: /[0-9]/.test(pwd || ""),
+    special: /[!@#$%^&*(),.?":{}|<>\-_=+]/.test(pwd || "")
+  };
+}
+
+function updateChecklistUI(prefix, pwd) {
+  const res = checkPasswordStrength(pwd);
+  const updateRule = (ruleId, passed) => {
+    const el = document.getElementById(`${prefix}-${ruleId}`);
+    if (!el) return;
+    const icon = el.querySelector("i");
+    if (passed) {
+      el.className = "flex items-center gap-1.5 text-emerald-700 font-bold";
+      if (icon) icon.className = "fa-solid fa-circle-check text-emerald-600";
+    } else {
+      el.className = "flex items-center gap-1.5 text-slate-400 font-medium";
+      if (icon) icon.className = "fa-solid fa-circle-xmark text-slate-300";
+    }
+  };
+  updateRule("chk-len", res.len);
+  updateRule("chk-upper", res.upper);
+  updateRule("chk-lower", res.lower);
+  updateRule("chk-num", res.num);
+  updateRule("chk-special", res.special);
+  return res.len && res.upper && res.lower && res.num && res.special;
+}
+
+function updateRegPasswordCriteria(pwd) {
+  updateChecklistUI("pwd", pwd);
+}
+
+function updateChangePasswordCriteria(pwd) {
+  updateChecklistUI("cp", pwd);
+}
+
+function updateForgotResetPasswordCriteria(pwd) {
+  updateChecklistUI("fp", pwd);
+}
+
+function updateModalRegPasswordCriteria(pwd) {
+  updateChecklistUI("m-pwd", pwd);
+}
+
+// -------------------------------------------------------------
+// THREE-DOT USER MENU HANDLERS
+// -------------------------------------------------------------
+function toggleUserMenu() {
+  const menu = document.getElementById("user-dropdown-menu");
+  if (menu) menu.classList.toggle("hidden");
+}
+
+function closeUserMenu() {
+  const menu = document.getElementById("user-dropdown-menu");
+  if (menu) menu.classList.add("hidden");
+}
+
+document.addEventListener("click", (e) => {
+  const container = document.getElementById("user-menu-container");
+  if (container && !container.contains(e.target)) {
+    closeUserMenu();
+  }
+});
+
+function handleMenuAction(action) {
+  closeUserMenu();
+  if (action === "book_slot") {
+    openBookingModal();
+  } else if (action === "new_reg") {
+    openNewRegistrationModal();
+  } else if (action === "change_pwd") {
+    openChangePasswordModal();
+  } else if (action === "forgot_pwd") {
+    openForgotPasswordModal();
+  } else if (action === "profile") {
+    openProfileModal();
+  } else if (action === "logout") {
+    logout();
+  }
+}
+
+// -------------------------------------------------------------
+// CHANGE PASSWORD MODAL WORKFLOW
+// -------------------------------------------------------------
+function openChangePasswordModal() {
+  const modal = document.getElementById("change-password-modal");
+  if (!modal) return;
+  const form = document.getElementById("change-password-form");
+  if (form) form.reset();
+  const errEl = document.getElementById("cp-error");
+  if (errEl) errEl.classList.add("hidden");
+  updateChangePasswordCriteria("");
+  modal.classList.remove("hidden");
+}
+
+function closeChangePasswordModal() {
+  const modal = document.getElementById("change-password-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function handleChangePasswordSubmit(event) {
+  event.preventDefault();
+  const currPwd = document.getElementById("cp-current-pwd").value;
+  const newPwd = document.getElementById("cp-new-pwd").value;
+  const confirmPwd = document.getElementById("cp-confirm-pwd").value;
+  const errEl = document.getElementById("cp-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  if (newPwd !== confirmPwd) {
+    const msg = t("err_pwd_mismatch") || "नया पासवर्ड और पुष्टि पासवर्ड मेल नहीं खाते हैं।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  if (currPwd === newPwd) {
+    const msg = t("err_pwd_same_as_curr") || "नया पासवर्ड आपके वर्तमान पासवर्ड के समान नहीं हो सकता।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  const strength = checkPasswordStrength(newPwd);
+  if (!(strength.len && strength.upper && strength.lower && strength.num && strength.special)) {
+    const msg = t("err_weak_password") || "कृपया एक मजबूत पासवर्ड दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  try {
+    await api("/api/auth/change-password", "POST", {
+      current_password: currPwd,
+      new_password: newPwd,
+      confirm_password: confirmPwd
+    });
+    closeChangePasswordModal();
+    showToast(t("toast_pwd_changed") || "पासवर्ड सफलतापूर्वक बदला गया।", "success");
+  } catch (err) {
+    const msg = err.message || "पासवर्ड बदलने में त्रुटि।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+  }
+}
+
+// -------------------------------------------------------------
+// FORGOT PASSWORD WORKFLOW (SECURITY QUESTIONS - NO OTP)
+// -------------------------------------------------------------
+let _forgotPasswordMobile = "";
+
+function openForgotPasswordModal() {
+  const modal = document.getElementById("forgot-password-modal");
+  if (!modal) return;
+  _forgotPasswordMobile = "";
+  goToForgotStep(1);
+  const mobInput = document.getElementById("fp-mobile");
+  if (mobInput) mobInput.value = "";
+  const err1 = document.getElementById("fp-step1-error");
+  if (err1) err1.classList.add("hidden");
+  const err2 = document.getElementById("fp-step2-error");
+  if (err2) err2.classList.add("hidden");
+  const err3 = document.getElementById("fp-step3-error");
+  if (err3) err3.classList.add("hidden");
+  modal.classList.remove("hidden");
+}
+
+function closeForgotPasswordModal() {
+  const modal = document.getElementById("forgot-password-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function goToForgotStep(step) {
+  const s1 = document.getElementById("fp-step-1");
+  const s2 = document.getElementById("fp-step-2");
+  const s3 = document.getElementById("fp-step-3");
+  if (s1) s1.classList.toggle("hidden", step !== 1);
+  if (s2) s2.classList.toggle("hidden", step !== 2);
+  if (s3) s3.classList.toggle("hidden", step !== 3);
+}
+
+async function handleForgotStep1Submit() {
+  const rawMobile = document.getElementById("fp-mobile").value.trim();
+  const errEl = document.getElementById("fp-step1-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  const normMobile = normalizeIndianMobile(rawMobile);
+  if (!normMobile) {
+    const msg = t("err_invalid_phone") || "कृपया एक वैध 10-अंकों का भारतीय मोबाइल नंबर दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  try {
+    const res = await api("/api/auth/forgot-password/questions", "POST", { mobile: normMobile });
+    _forgotPasswordMobile = normMobile;
+    if (res.questions && res.questions.length >= 2) {
+      const q1El = document.getElementById("fp-q1-label");
+      const q2El = document.getElementById("fp-q2-label");
+      if (q1El) q1El.textContent = res.questions[0].question;
+      if (q2El) q2El.textContent = res.questions[1].question;
+    }
+    const a1Input = document.getElementById("fp-a1");
+    const a2Input = document.getElementById("fp-a2");
+    if (a1Input) a1Input.value = "";
+    if (a2Input) a2Input.value = "";
+    goToForgotStep(2);
+  } catch (err) {
+    const msg = err.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+  }
+}
+
+async function handleForgotStep2Submit() {
+  const a1 = document.getElementById("fp-a1").value.trim();
+  const a2 = document.getElementById("fp-a2").value.trim();
+  const errEl = document.getElementById("fp-step2-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  if (!a1 || !a2) {
+    const msg = "कृपया दोनों सुरक्षा प्रश्नों के उत्तर दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  const pNew = document.getElementById("fp-new-pwd");
+  const pConf = document.getElementById("fp-confirm-pwd");
+  if (pNew) pNew.value = "";
+  if (pConf) pConf.value = "";
+  updateForgotResetPasswordCriteria("");
+  goToForgotStep(3);
+}
+
+async function handleForgotStep3Submit() {
+  const a1 = document.getElementById("fp-a1").value.trim();
+  const a2 = document.getElementById("fp-a2").value.trim();
+  const newPwd = document.getElementById("fp-new-pwd").value;
+  const confirmPwd = document.getElementById("fp-confirm-pwd").value;
+  const errEl = document.getElementById("fp-step3-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  if (newPwd !== confirmPwd) {
+    const msg = t("err_pwd_mismatch") || "नया पासवर्ड और पुष्टि पासवर्ड मेल नहीं खाते हैं।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  const strength = checkPasswordStrength(newPwd);
+  if (!(strength.len && strength.upper && strength.lower && strength.num && strength.special)) {
+    const msg = t("err_weak_password") || "कृपया एक मजबूत पासवर्ड दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  try {
+    await api("/api/auth/forgot-password/reset", "POST", {
+      mobile: _forgotPasswordMobile,
+      sec_a1: a1,
+      sec_a2: a2,
+      new_password: newPwd
+    });
+    closeForgotPasswordModal();
+    showToast(t("toast_pwd_reset") || "पासवर्ड सफलतापूर्वक रीसेट हुआ। अब नए पासवर्ड से लॉगिन करें।", "success");
+    setFarmerSubTab("login");
+    const loginMobileInput = document.getElementById("f-login-mobile");
+    if (loginMobileInput) loginMobileInput.value = _forgotPasswordMobile;
+    const loginOtpInput = document.getElementById("f-login-otp");
+    if (loginOtpInput) loginOtpInput.value = "";
+  } catch (err) {
+    const msg = err.message || "पासवर्ड रीसेट विफल। कृपया सुरक्षा उत्तर जांचें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+  }
+}
+
+// -------------------------------------------------------------
+// NEW REGISTRATION MODAL (ACCESSIBLE FROM THREE-DOT MENU)
+// -------------------------------------------------------------
+function openNewRegistrationModal() {
+  const modal = document.getElementById("new-reg-modal");
+  if (!modal) return;
+  const form = document.getElementById("modal-register-form");
+  if (form) form.reset();
+  const errEl = document.getElementById("m-reg-error");
+  if (errEl) errEl.classList.add("hidden");
+  updateModalRegPasswordCriteria("");
+  modal.classList.remove("hidden");
+}
+
+function closeNewRegistrationModal() {
+  const modal = document.getElementById("new-reg-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function handleModalRegisterSubmit(event) {
+  event.preventDefault();
+  const name = document.getElementById("m-reg-name").value.trim();
+  const rawMobile = document.getElementById("m-reg-mobile").value.trim();
+  const village = document.getElementById("m-reg-village").value.trim();
+  const password = document.getElementById("m-reg-password").value;
+  const secQ1El = document.getElementById("m-reg-sec-q1");
+  const secA1El = document.getElementById("m-reg-sec-a1");
+  const secQ2El = document.getElementById("m-reg-sec-q2");
+  const secA2El = document.getElementById("m-reg-sec-a2");
+  const sec_q1 = secQ1El ? secQ1El.value : "What was the name of your first school?";
+  const sec_a1 = secA1El ? secA1El.value.trim() : "";
+  const sec_q2 = secQ2El ? secQ2El.value : "What was your childhood nickname?";
+  const sec_a2 = secA2El ? secA2El.value.trim() : "";
+
+  const errEl = document.getElementById("m-reg-error");
+  if (errEl) errEl.classList.add("hidden");
+
+  const normMobile = normalizeIndianMobile(rawMobile);
+  if (!normMobile) {
+    const msg = t("err_invalid_phone") || "कृपया एक वैध 10-अंकों का भारतीय मोबाइल नंबर दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  const strength = checkPasswordStrength(password);
+  if (!(strength.len && strength.upper && strength.lower && strength.num && strength.special)) {
+    const msg = t("err_weak_password") || "कृपया एक मजबूत पासवर्ड दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  if (!sec_a1 || !sec_a2) {
+    const msg = "कृपया दोनों सुरक्षा प्रश्नों के उत्तर दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  try {
+    const res = await api("/api/auth/register", "POST", {
+      name,
+      mobile: normMobile,
+      village,
+      password,
+      sec_q1,
+      sec_a1,
+      sec_q2,
+      sec_a2
+    });
+    closeNewRegistrationModal();
+    loginAs(res.user, res.token);
+    showToast(t("toast_reg_success") || "पंजीकरण सफल!", "success");
+    setTimeout(openBookingModal, 400);
+  } catch (err) {
+    const errMsg = err.message.includes("already exists") ? t("err_duplicate_phone") : err.message;
+    if (errEl) { errEl.textContent = errMsg; errEl.classList.remove("hidden"); }
+    showToast(errMsg, "error");
+  }
+}
+
+// -------------------------------------------------------------
+// DYNAMIC VIEW TRANSLATION SYNCHRONIZATION
+// -------------------------------------------------------------
+function onLanguageChanged(lang) {
+  if (STATE.user) {
+    const headerUserEl = document.getElementById("header-user-name");
+    if (headerUserEl && STATE.user) {
+      const firstName = (STATE.user.name || "User").split(" ")[0];
+      headerUserEl.textContent = firstName;
+    }
+  }
+
+  // If farmer dashboard is active, re-render journey stages and tables
+  if (STATE.role === "farmer") {
+    if (typeof renderJourneyStages === "function" && STATE.myBooking) {
+      renderJourneyStages(STATE.myBooking.status);
+    }
+    if (typeof renderStepper === "function" && STATE.myBooking) {
+      renderStepper();
+    }
+    if (typeof renderDigitalPass === "function" && STATE.myBooking) {
+      renderDigitalPass();
+    }
+    if (typeof renderNearbyCentres === "function" && STATE.centres && STATE.centres.length) {
+      renderNearbyCentres(STATE.centres);
+    }
+    if (typeof renderFarmerBookingHistory === "function") {
+      renderFarmerBookingHistory();
+    }
+    if (typeof renderUpcomingSlots === "function" && STATE.bookingCentreChoice) {
+      renderUpcomingSlots(STATE.bookingCentreChoice);
+    }
+  }
+}
+
+// -------------------------------------------------------------
 // DUAL-MODE API HELPER WITH JWT AUTH
 // -------------------------------------------------------------
 async function api(path, method = "GET", body = null) {
@@ -229,15 +642,18 @@ function setFarmerSubTab(subTab) {
 
 async function handleFarmerLoginSubmit(event) {
   event.preventDefault();
-  const identifier = document.getElementById("f-login-mobile").value.trim();
+  const rawId = document.getElementById("f-login-mobile").value.trim();
   const otp = document.getElementById("f-login-otp").value.trim();
   const errEl = document.getElementById("f-login-error");
   if (errEl) errEl.classList.add("hidden");
 
-  if (!identifier) {
-    if (errEl) { errEl.textContent = "कृपया मोबाइल नंबर या किसान ID दर्ज करें।"; errEl.classList.remove("hidden"); }
+  if (!rawId) {
+    const msg = t("err_invalid_phone") || "कृपया मोबाइल नंबर या किसान ID दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
     return;
   }
+
+  const identifier = normalizeIndianMobile(rawId) || rawId;
 
   try {
     const res = await api("/api/auth/login", "POST", { identifier, password: otp || "1234", role: "farmer" });
@@ -268,20 +684,61 @@ async function handleDemoFarmerLogin() {
 async function handleFarmerRegisterSubmit(event) {
   event.preventDefault();
   const name = document.getElementById("f-reg-name").value.trim();
-  const mobile = document.getElementById("f-reg-mobile").value.trim();
+  const rawMobile = document.getElementById("f-reg-mobile").value.trim();
   const village = document.getElementById("f-reg-village").value.trim();
   const password = document.getElementById("f-reg-password").value;
+  const secQ1El = document.getElementById("f-reg-sec-q1");
+  const secA1El = document.getElementById("f-reg-sec-a1");
+  const secQ2El = document.getElementById("f-reg-sec-q2");
+  const secA2El = document.getElementById("f-reg-sec-a2");
+  const sec_q1 = secQ1El ? secQ1El.value : "What was the name of your first school?";
+  const sec_a1 = secA1El ? secA1El.value.trim() : "";
+  const sec_q2 = secQ2El ? secQ2El.value : "What was your childhood nickname?";
+  const sec_a2 = secA2El ? secA2El.value.trim() : "";
   const errEl = document.getElementById("f-reg-error");
   if (errEl) errEl.classList.add("hidden");
 
+  const normMobile = normalizeIndianMobile(rawMobile);
+  if (!normMobile) {
+    const msg = t("err_invalid_phone") || "कृपया एक वैध 10-अंकों का भारतीय मोबाइल नंबर दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  const strength = checkPasswordStrength(password);
+  if (!(strength.len && strength.upper && strength.lower && strength.num && strength.special)) {
+    const msg = t("err_weak_password") || "कृपया एक मजबूत पासवर्ड दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
+  if (!sec_a1 || !sec_a2) {
+    const msg = "कृपया दोनों सुरक्षा प्रश्नों के उत्तर दर्ज करें।";
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+    showToast(msg, "error");
+    return;
+  }
+
   try {
-    const res = await api("/api/auth/register", "POST", { name, mobile, village, password: password || "1234" });
+    const res = await api("/api/auth/register", "POST", {
+      name,
+      mobile: normMobile,
+      village,
+      password,
+      sec_q1,
+      sec_a1,
+      sec_q2,
+      sec_a2
+    });
     loginAs(res.user, res.token);
-    showToast("पंजीकरण सफल! अब अपना पहला स्लॉट बुक करें।", "success");
+    showToast(t("toast_reg_success") || "पंजीकरण सफल! अब अपना पहला स्लॉट बुक करें।", "success");
     setTimeout(openBookingModal, 400);
   } catch (err) {
-    if (errEl) { errEl.textContent = err.message || "पंजीकरण विफल रहा।"; errEl.classList.remove("hidden"); }
-    showToast(err.message || "पंजीकरण विफल", "error");
+    const errMsg = (err.message && err.message.includes("already exists")) ? (t("err_duplicate_phone") || err.message) : (err.message || "पंजीकरण विफल रहा।");
+    if (errEl) { errEl.textContent = errMsg; errEl.classList.remove("hidden"); }
+    showToast(errMsg, "error");
   }
 }
 

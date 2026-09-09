@@ -32,6 +32,28 @@ class RegisterRequest(BaseModel):
     ifsc: Optional[str] = "SBIN0001234"
     lat: Optional[float] = Field(default=29.6857, ge=-90.0, le=90.0)
     lng: Optional[float] = Field(default=76.9905, ge=-180.0, le=180.0)
+    sec_q1: Optional[str] = None
+    sec_a1: Optional[str] = None
+    sec_q2: Optional[str] = None
+    sec_a2: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+
+class ForgotPasswordQuestionsRequest(BaseModel):
+    mobile: str
+
+
+class ForgotPasswordResetRequest(BaseModel):
+    mobile: str
+    sec_a1: str
+    sec_a2: str
+    new_password: str
+
 
 
 class UserProfile(BaseModel):

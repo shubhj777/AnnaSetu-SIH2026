@@ -72,6 +72,10 @@ def init_db():
             ifsc TEXT DEFAULT 'SBIN0001234',
             lat REAL CHECK(lat IS NULL OR (lat >= -90.0 AND lat <= 90.0)),
             lng REAL CHECK(lng IS NULL OR (lng >= -180.0 AND lng <= 180.0)),
+            sec_q1 TEXT,
+            sec_a1_hash TEXT,
+            sec_q2 TEXT,
+            sec_a2_hash TEXT,
             created_at TEXT NOT NULL
         );
         """)
@@ -327,3 +331,24 @@ def init_db():
             cursor.execute("ALTER TABLE bookings ADD COLUMN gate_entry_id TEXT;")
         if "gate_number" not in booking_cols:
             cursor.execute("ALTER TABLE bookings ADD COLUMN gate_number TEXT;")
+
+        # Safe migration for users table: security question columns
+        cursor.execute("PRAGMA table_info(users);")
+        user_cols = [c[1] for c in cursor.fetchall()]
+        if "sec_q1" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN sec_q1 TEXT;")
+        if "sec_a1_hash" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN sec_a1_hash TEXT;")
+        if "sec_q2" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN sec_q2 TEXT;")
+        if "sec_a2_hash" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN sec_a2_hash TEXT;")
+
+        # Check for duplicate mobile numbers before creating unique index
+        cursor.execute("SELECT mobile, COUNT(*) as cnt FROM users GROUP BY mobile HAVING cnt > 1;")
+        duplicate_mobiles = cursor.fetchall()
+        if duplicate_mobiles:
+            print(f"[WARNING] Duplicate mobile numbers detected in users table: {[r['mobile'] for r in duplicate_mobiles]}. Unique index creation skipped.")
+        else:
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_mobile_unique ON users(mobile);")
+

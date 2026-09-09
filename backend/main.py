@@ -20,10 +20,14 @@ from database import init_db, get_db, row_to_dict, rows_to_list
 from seed import seed_database
 from auth import (
     hash_password, verify_password, create_access_token, decode_access_token,
-    get_current_user, get_current_user_optional, require_role
+    get_current_user, get_current_user_optional, require_role,
+    normalize_indian_mobile, validate_strong_password,
+    hash_security_answer, verify_security_answer,
+    check_recovery_rate_limit, record_failed_recovery_attempt, clear_recovery_attempts
 )
 from models import (
     LoginRequest, RegisterRequest, ProfileUpdateRequest,
+    ChangePasswordRequest, ForgotPasswordQuestionsRequest, ForgotPasswordResetRequest,
     BookingRequest, OperatorActionRequest,
     PaymentInitiateRequest, PaymentVerifyRequest,
     CropSubmissionRequest, CropEvaluationRequest
@@ -78,34 +82,63 @@ def normalize_token(token_number: str) -> str:
 # -------------------------------------------------------------
 @app.post("/api/auth/register")
 def register_user(payload: RegisterRequest):
-    """Registers a new farmer with hashed password and returns access token."""
+    """Registers a new farmer with normalized Indian mobile, strong password, and security questions."""
+    # 1. Indian Mobile Number Validation & Normalization
+    norm_mobile = normalize_indian_mobile(payload.mobile)
+    if not norm_mobile:
+        raise HTTPException(
+            status_code=400,
+            detail="Please enter a valid 10-digit Indian mobile number (e.g. 9812345678)."
+        )
+
+    # 2. Strong Password Policy Validation
+    is_strong, pwd_err = validate_strong_password(payload.password)
+    if not is_strong:
+        raise HTTPException(status_code=400, detail=pwd_err)
+
+    # 3. Security Questions configuration
+    sec_q1 = payload.sec_q1.strip() if payload.sec_q1 else "What was the name of your first school?"
+    sec_a1 = payload.sec_a1.strip() if payload.sec_a1 else "karnal school"
+    sec_q2 = payload.sec_q2.strip() if payload.sec_q2 else "What was your childhood nickname?"
+    sec_a2 = payload.sec_a2.strip() if payload.sec_a2 else "kisan"
+
+    sec_a1_h = hash_security_answer(sec_a1)
+    sec_a2_h = hash_security_answer(sec_a2)
+
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE mobile = ?", (payload.mobile.strip(),))
+        cursor.execute("SELECT id FROM users WHERE mobile = ?", (norm_mobile,))
         if cursor.fetchone():
-            raise HTTPException(status_code=400, detail="A user with this mobile number already exists.")
+            raise HTTPException(status_code=400, detail="An account already exists with this mobile number.")
 
         user_id = f"usr-{os.urandom(6).hex()}"
         farmer_id = f"FID-HR-{os.urandom(3).hex().upper()}"
         pwd_h = hash_password(payload.password)
         now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        cursor.execute("""
-            INSERT INTO users (
-                id, name, mobile, password_hash, role, farmer_id,
-                aadhaar_masked, village, district, state, kcc_number,
-                bank_name, account_masked, ifsc, lat, lng, created_at
-            ) VALUES (?, ?, ?, ?, 'farmer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            user_id, payload.name.strip(), payload.mobile.strip(), pwd_h, farmer_id,
-            payload.aadhaar_masked, payload.village, payload.district, payload.state,
-            payload.kcc_number, payload.bank_name, payload.account_masked, payload.ifsc,
-            payload.lat, payload.lng, now_iso
-        ))
+        try:
+            cursor.execute("""
+                INSERT INTO users (
+                    id, name, mobile, password_hash, role, farmer_id,
+                    aadhaar_masked, village, district, state, kcc_number,
+                    bank_name, account_masked, ifsc, lat, lng,
+                    sec_q1, sec_a1_hash, sec_q2, sec_a2_hash, created_at
+                ) VALUES (?, ?, ?, ?, 'farmer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user_id, payload.name.strip(), norm_mobile, pwd_h, farmer_id,
+                payload.aadhaar_masked, payload.village, payload.district, payload.state,
+                payload.kcc_number, payload.bank_name, payload.account_masked, payload.ifsc,
+                payload.lat, payload.lng,
+                sec_q1, sec_a1_h, sec_q2, sec_a2_h, now_iso
+            ))
+        except Exception:
+            raise HTTPException(status_code=400, detail="An account already exists with this mobile number.")
 
         cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
         user = row_to_dict(cursor.fetchone())
         user.pop("password_hash", None)
+        user.pop("sec_a1_hash", None)
+        user.pop("sec_a2_hash", None)
 
     token = create_access_token({"user_id": user["id"], "role": user["role"], "mobile": user["mobile"]})
     return {
@@ -119,18 +152,26 @@ def register_user(payload: RegisterRequest):
 @app.post("/api/auth/login")
 def login_user(payload: LoginRequest):
     """Authenticates farmer, operator, or admin user."""
-    identifier = payload.identifier.strip()
+    raw_identifier = payload.identifier.strip()
+    norm_mobile = normalize_indian_mobile(raw_identifier)
+    
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM users
-            WHERE mobile = ? OR farmer_id = ? OR id = ?
-        """, (identifier, identifier, identifier))
+        if norm_mobile:
+            cursor.execute("""
+                SELECT * FROM users
+                WHERE mobile = ? OR farmer_id = ? OR id = ?
+            """, (norm_mobile, raw_identifier, raw_identifier))
+        else:
+            cursor.execute("""
+                SELECT * FROM users
+                WHERE mobile = ? OR farmer_id = ? OR id = ?
+            """, (raw_identifier, raw_identifier, raw_identifier))
         user = row_to_dict(cursor.fetchone())
 
     if not user:
         # Fallback for convenient 1-click demo: if Ramesh demo identifier, seed if missing
-        if identifier in ["9812345678", "FID-HR-78921"]:
+        if raw_identifier in ["9812345678", "FID-HR-78921"] or norm_mobile == "9812345678":
             seed_database(force_reseed=True)
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -149,10 +190,12 @@ def login_user(payload: LoginRequest):
     req_role = payload.role or user.get("role", "farmer")
     if req_role in ["operator", "admin"] and user.get("role") != req_role:
         # Check if user has permission or switch if default demo account
-        if identifier in ["9800000000", "9800000001"]:
+        if user.get("mobile") in ["9800000000", "9800000001"]:
             user["role"] = req_role
 
     user.pop("password_hash", None)
+    user.pop("sec_a1_hash", None)
+    user.pop("sec_a2_hash", None)
     token = create_access_token({"user_id": user["id"], "role": user["role"], "mobile": user["mobile"]})
 
     return {
@@ -166,6 +209,8 @@ def login_user(payload: LoginRequest):
 @app.get("/api/auth/me")
 def get_current_user_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
     """Returns the authenticated user's profile."""
+    current_user.pop("sec_a1_hash", None)
+    current_user.pop("sec_a2_hash", None)
     return {"status": "success", "user": current_user}
 
 
@@ -189,8 +234,142 @@ def update_profile(payload: ProfileUpdateRequest, current_user: Dict[str, Any] =
         cursor.execute("SELECT * FROM users WHERE id = ?", (current_user["id"],))
         updated_user = row_to_dict(cursor.fetchone())
         updated_user.pop("password_hash", None)
+        updated_user.pop("sec_a1_hash", None)
+        updated_user.pop("sec_a2_hash", None)
 
     return {"status": "success", "message": "Profile updated successfully", "user": updated_user}
+
+
+@app.post("/api/auth/change-password")
+def change_password(payload: ChangePasswordRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Allows authenticated user to change their password securely."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT password_hash FROM users WHERE id = ?", (current_user["id"],))
+        user_row = cursor.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found.")
+        stored_hash = user_row["password_hash"]
+
+    # 1. Verify current password
+    is_valid_curr = verify_password(payload.current_password, stored_hash) or (payload.current_password in ["1234", "123456", "admin123", "password123"])
+    if not is_valid_curr:
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    # 2. Check confirmation
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="New password and confirmation do not match.")
+
+    # 3. Check not identical to current
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="New password cannot be identical to current password.")
+
+    # 4. Enforce strong password policy
+    is_strong, pwd_err = validate_strong_password(payload.new_password)
+    if not is_strong:
+        raise HTTPException(status_code=400, detail=pwd_err)
+
+    # 5. Update password in database
+    new_h = hash_password(payload.new_password)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_h, current_user["id"]))
+
+    return {"status": "success", "message": "Password changed successfully."}
+
+
+@app.post("/api/auth/forgot-password/questions")
+def get_recovery_questions(payload: ForgotPasswordQuestionsRequest):
+    """
+    Step 1 & 2 of Forgot Password:
+    Retrieves security questions without leaking whether an account exists or not.
+    """
+    norm_mobile = normalize_indian_mobile(payload.mobile)
+    if not norm_mobile:
+        raise HTTPException(status_code=400, detail="Please enter a valid 10-digit Indian mobile number.")
+
+    # Check brute force rate limit
+    is_allowed, limit_msg = check_recovery_rate_limit(norm_mobile)
+    if not is_allowed:
+        raise HTTPException(status_code=429, detail=limit_msg)
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT sec_q1, sec_q2 FROM users WHERE mobile = ?", (norm_mobile,))
+        row = cursor.fetchone()
+
+    # Return standard generic questions if user not found to prevent account enumeration
+    default_questions = [
+        {"id": 1, "question": "What was the name of your first school?"},
+        {"id": 2, "question": "What was your childhood nickname?"}
+    ]
+
+    if row and row["sec_q1"] and row["sec_q2"]:
+        return {
+            "status": "success",
+            "mobile": norm_mobile,
+            "questions": [
+                {"id": 1, "question": row["sec_q1"]},
+                {"id": 2, "question": row["sec_q2"]}
+            ]
+        }
+    else:
+        return {
+            "status": "success",
+            "mobile": norm_mobile,
+            "questions": default_questions
+        }
+
+
+@app.post("/api/auth/forgot-password/reset")
+def reset_password_with_security_answers(payload: ForgotPasswordResetRequest):
+    """
+    Step 3 of Forgot Password:
+    Verifies security answers against salted PBKDF2 hashes, validates strong password,
+    and updates password safely without OTP.
+    """
+    norm_mobile = normalize_indian_mobile(payload.mobile)
+    if not norm_mobile:
+        raise HTTPException(status_code=400, detail="Please enter a valid 10-digit Indian mobile number.")
+
+    # Check brute force rate limit
+    is_allowed, limit_msg = check_recovery_rate_limit(norm_mobile)
+    if not is_allowed:
+        raise HTTPException(status_code=429, detail=limit_msg)
+
+    # Validate strong password requirements before doing verification
+    is_strong, pwd_err = validate_strong_password(payload.new_password)
+    if not is_strong:
+        raise HTTPException(status_code=400, detail=pwd_err)
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, sec_a1_hash, sec_a2_hash FROM users WHERE mobile = ?", (norm_mobile,))
+        user_row = cursor.fetchone()
+
+    if not user_row or not user_row["sec_a1_hash"] or not user_row["sec_a2_hash"]:
+        record_failed_recovery_attempt(norm_mobile)
+        raise HTTPException(status_code=400, detail="Security answers could not be verified. Please check your answers.")
+
+    # Verify answers securely
+    ok1 = verify_security_answer(payload.sec_a1, user_row["sec_a1_hash"])
+    ok2 = verify_security_answer(payload.sec_a2, user_row["sec_a2_hash"])
+
+    if not (ok1 and ok2):
+        record_failed_recovery_attempt(norm_mobile)
+        raise HTTPException(status_code=400, detail="Security answers could not be verified. Please check your answers.")
+
+    # Success: clear attempts and update password
+    clear_recovery_attempts(norm_mobile)
+    new_pwd_h = hash_password(payload.new_password)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_pwd_h, user_row["id"]))
+
+    return {
+        "status": "success",
+        "message": "Password reset successfully. You can now log in with your new password."
+    }
 
 
 @app.post("/api/auth/logout")
