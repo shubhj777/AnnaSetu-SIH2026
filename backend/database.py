@@ -6,16 +6,28 @@ ACID transactions, and indexed query operations.
 
 import sqlite3
 import os
+import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import contextlib
 
-DB_PATH = Path(os.getenv("DATABASE_PATH", Path(__file__).resolve().parent.parent / "kisanqueue.db"))
+
+def get_db_path() -> Path:
+    """Returns the resolved Path to the SQLite database file, respecting DATABASE_PATH env var."""
+    raw = os.getenv("DATABASE_PATH", "").strip()
+    if raw:
+        return Path(raw).resolve()
+    return (Path(__file__).resolve().parent.parent / "kisanqueue.db").resolve()
+
+
+DB_PATH = get_db_path()
 
 
 def get_db_connection() -> sqlite3.Connection:
     """Returns a configured SQLite connection with foreign keys and row factory enabled."""
-    conn = sqlite3.connect(str(DB_PATH), timeout=20.0)
+    db_file = get_db_path()
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_file), timeout=20.0)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.row_factory = sqlite3.Row
@@ -50,6 +62,19 @@ def rows_to_list(rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:
 
 def init_db():
     """Initializes the SQLite schema with all required tables, constraints, and indices."""
+    db_file = get_db_path()
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # If an external/mounted persistent path is configured (e.g. /data/kisanqueue.db)
+    # and the target database does not exist yet on first boot, initialize it ONCE from the
+    # existing repository database template. NEVER overwrite an existing database file.
+    repo_db = (Path(__file__).resolve().parent.parent / "kisanqueue.db").resolve()
+    if db_file != repo_db and not db_file.exists() and repo_db.exists():
+        try:
+            shutil.copy2(str(repo_db), str(db_file))
+            print(f"[DB INIT] Initialized persistent production database at {db_file} from repository template.")
+        except Exception as e:
+            print(f"[DB INIT] Warning: Could not copy initial template database: {e}")
     with get_db() as conn:
         cursor = conn.cursor()
 

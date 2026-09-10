@@ -146,7 +146,7 @@ def seed_database(force_reseed: bool = False):
 
         for c in centres_data:
             cursor.execute("""
-                INSERT INTO procurement_centres (
+                INSERT OR IGNORE INTO procurement_centres (
                     id, name, code, district, state, lat, lng, distance_km,
                     total_daily_capacity, current_load_percentage, status,
                     active_counters, avg_processing_time_min, current_token,
@@ -182,7 +182,7 @@ def seed_database(force_reseed: bool = False):
                 actual_booked = booked if cid == "centre-a" else max(1, booked // 2)
                 is_avail = 1 if actual_booked < cap else 0
                 cursor.execute("""
-                    INSERT INTO time_slots (
+                    INSERT OR IGNORE INTO time_slots (
                         id, centre_id, date, time_window, display_time_window,
                         max_capacity, booked_count, is_available, congestion_level
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -316,7 +316,7 @@ def seed_database(force_reseed: bool = False):
 
         for u in users_data:
             cursor.execute("""
-                INSERT INTO users (
+                INSERT OR IGNORE INTO users (
                     id, name, mobile, password_hash, role, farmer_id,
                     aadhaar_masked, village, district, state, kcc_number,
                     bank_name, account_masked, ifsc, lat, lng,

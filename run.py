@@ -20,19 +20,19 @@ sys.path.insert(0, str(backend_dir))
 def main():
     import uvicorn
     
-    port = 8000
-    host = "127.0.0.1"
+    port = int(os.getenv("PORT", "8000"))
+    host = os.getenv("HOST", "0.0.0.0" if os.getenv("RENDER") or os.getenv("PORT") else "127.0.0.1")
     url = f"http://{host}:{port}"
     
     print("=" * 70)
-    print("KISANQUEUE (किसान कतार) - SMART FARMER PROCUREMENT & QUEUE PLATFORM")
+    print("ANNASETU / KISANQUEUE - SMART FARMER PROCUREMENT & QUEUE PLATFORM")
     print("=" * 70)
-    print(f"Starting server on {url}")
-    print("Opening browser automatically...")
-    print("=" * 70)
-
-    # Open browser slightly after server startup
-    if "--no-browser" not in sys.argv:
+    print(f"Starting server on {url} (host={host}, port={port})")
+    
+    # Open browser slightly after server startup only if running locally with a display
+    is_headless = "--no-browser" in sys.argv or bool(os.getenv("RENDER"))
+    if not is_headless:
+        print("Opening browser automatically...")
         try:
             import threading
             def open_browser():
@@ -41,6 +41,7 @@ def main():
             threading.Thread(target=open_browser, daemon=True).start()
         except Exception:
             pass
+    print("=" * 70)
 
     uvicorn.run("main:app", host=host, port=port, app_dir=str(backend_dir), reload=False)
 

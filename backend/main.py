@@ -5,8 +5,15 @@ Provides comprehensive REST APIs for Authentication, Slot Booking, Live Queue Te
 Mandi Operator Terminal, Payments, Crop Evaluation, GIS, and District Admin Analytics.
 """
 
+import sys
 import os
 from pathlib import Path
+
+# Ensure backend directory is in sys.path so direct module imports work in all deployment environments
+backend_dir = Path(__file__).resolve().parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
 from datetime import datetime, date
 from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
@@ -58,10 +65,26 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for cross-origin frontend support
+# Configure deployment-safe CORS
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if allowed_origins_env:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https:\/\/.*\.onrender\.com$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -981,6 +1004,20 @@ def manual_trigger_reminders():
 
 
 # -------------------------------------------------------------
+# 9b. DEPLOYMENT HEALTH CHECK ENDPOINT
+# -------------------------------------------------------------
+@app.get("/api/health")
+def health_check():
+    """Lightweight deployment health check endpoint for Render zero-downtime health probes."""
+    return {
+        "status": "healthy",
+        "platform": "AnnaSetu",
+        "version": "2.5.0",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+# -------------------------------------------------------------
 # 10. STATIC FRONTEND SERVING (Root Mount)
 # -------------------------------------------------------------
 if FRONTEND_DIR.exists():
@@ -989,4 +1026,6 @@ if FRONTEND_DIR.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    host = os.getenv("HOST", "0.0.0.0" if os.getenv("RENDER") or os.getenv("PORT") else "127.0.0.1")
+    uvicorn.run("main:app", host=host, port=port, reload=False)

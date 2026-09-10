@@ -1,0 +1,41 @@
+# ==============================================================================
+# Render Blueprint Specification (render.yaml)
+# Project: AnnaSetu (SIH 2026) — Unified FastAPI + Static Frontend Service
+# Docs: https://render.com/docs/blueprint-spec
+# ==============================================================================
+
+services:
+  - type: web
+    name: annasetu
+    runtime: python
+    plan: free # Default free tier. Switch to 'starter' if attaching a persistent disk.
+    region: oregon # or singapore, frankfurt, ohio
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SMS_MODE
+        value: demo
+      - key: SMS_SENDER_ID
+        value: KISANQ
+      # For production persistence on Render Starter plan ($7/mo + $0.25/GB disk),
+      # uncomment the disk block below and set DATABASE_PATH to /data/kisanqueue.db:
+      # - key: DATABASE_PATH
+      #   value: /data/kisanqueue.db
+
+    # --------------------------------------------------------------------------
+    # PERSISTENT DISK CONFIGURATION (Render Starter Plan or higher)
+    # Note: Free tier does not support persistent disks. To enable:
+    # 1. Change 'plan: free' above to 'plan: starter'
+    # 2. Uncomment the disk block below:
+    # --------------------------------------------------------------------------
+    # disk:
+    #   name: annasetu-data
+    #   mountPath: /data
+    #   sizeGB: 1

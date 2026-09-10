@@ -6,11 +6,16 @@ Deduplicated SMS Dispatch, and GIS Telemetry.
 """
 
 import sys
+import os
 from pathlib import Path
 
 # Add backend directory to sys.path
 backend_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(backend_dir))
+
+# Isolate database for tests: NEVER touch or modify the production kisanqueue.db
+TEST_DB_PATH = (backend_dir / "test_kisanqueue.db").resolve()
+os.environ["DATABASE_PATH"] = str(TEST_DB_PATH)
 
 import unittest
 from datetime import datetime, date
@@ -484,6 +489,21 @@ class TestKisanQueueCore(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 200)
         self.assertIn("Password changed successfully", res.json()["message"])
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up isolated test database after all tests complete."""
+        try:
+            if TEST_DB_PATH.exists():
+                TEST_DB_PATH.unlink()
+            wal = Path(str(TEST_DB_PATH) + "-wal")
+            shm = Path(str(TEST_DB_PATH) + "-shm")
+            if wal.exists():
+                wal.unlink()
+            if shm.exists():
+                shm.unlink()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
